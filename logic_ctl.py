@@ -160,29 +160,110 @@ def open_midi_as_project(path):
     subprocess.run(["open", "-a", app_name(), path], check=True)
 
 
-def select_track(index):
-    """Select track `index` (1-based) via arrow-key navigation.
+_track_container = None
 
-    Logic has no direct 'select track N' command, so walk to the top with
-    Up presses, then step Down. Bounded, deterministic, works on any project
-    with a reasonable track count.
+
+def _find_bounded_container(probe_snippet):
+    """Return the first 'group N of window 1' whose subtree satisfies the probe.
+
+    Scanning the whole window explodes on real projects (every region/note is
+    an AX element); per-group subtrees stay small.
     """
-    if not 1 <= int(index) <= 60:
-        raise LogicError("track index out of range (1-60)")
-    ups = "\n".join(["        key code 126\n        delay 0.05"] * 60)
-    downs = "\n".join(["        key code 125\n        delay 0.05"] * (int(index) - 1))
+    for i in range(1, 7):
+        pth = "group %d of window 1" % i
+        script = '''
+tell application "System Events" to tell process "%s"
+    try
+        with timeout of 25 seconds
+            set els to entire contents of (%s)
+            repeat with el in els
+                try
+                    %s
+                end try
+            end repeat
+            return "no"
+        end timeout
+    on error
+        return "no"
+    end try
+end tell
+''' % (process_name(), pth, probe_snippet)
+        try:
+            if osa(script, timeout=35) == "yes":
+                return pth
+        except LogicError:
+            continue
+    return None
+
+
+def _track_rows():
+    """Bounded scan of the track-header container.
+
+    Returns [(x, y, desc)] for the 18px-tall header text fields.
+    """
+    global _track_container
+    if not _track_container:
+        _track_container = _find_bounded_container(
+            'if role of el is "AXTextField" then\n'
+            '                        set sz to size of el\n'
+            '                        if (item 2 of sz is 18) and (item 1 of sz > 100) '
+            'then return "yes"\n'
+            '                    end if'
+        )
+        if not _track_container:
+            raise LogicError("track headers not found — is a project open?")
+    script = '''
+with timeout of 60 seconds
+    tell application "System Events"
+        tell process "%s"
+            set out to ""
+            set allEls to entire contents of (%s)
+            repeat with el in allEls
+                try
+                    if role of el is "AXTextField" then
+                        set s to size of el
+                        if (item 2 of s is 18) and (item 1 of s > 100) then
+                            set p to position of el
+                            set out to out & (item 1 of p) & "|" & (item 2 of p) & "|" & (description of el) & linefeed
+                        end if
+                    end if
+                end try
+            end repeat
+            return out
+        end tell
+    end tell
+end timeout
+''' % (process_name(), _track_container)
+    fields = []
+    for line in osa(script, timeout=90).splitlines():
+        parts = line.split("|", 2)
+        if len(parts) == 3:
+            fields.append((int(parts[0]), int(parts[1]), parts[2]))
+    return fields
+
+
+def select_track(index):
+    """Select track `index` (1-based) by clicking its header row."""
+    index = int(index)
+    fields = _track_rows()
+    if not fields:
+        raise LogicError("no track headers visible")
+    xs = sorted({x for x, _, _ in fields})
+    col = sorted((f for f in fields if f[0] == xs[0]), key=lambda f: f[1])
+    if not 1 <= index <= len(col):
+        raise LogicError("track index %d out of range (project has %d)" % (index, len(col)))
+    x, y, _ = col[index - 1]
     script = '''
 tell application "%s" to activate
 delay 0.4
 tell application "System Events"
     tell process "%s"
         set frontmost to true
-%s
-%s
+        click at {%d, %d}
     end tell
 end tell
-''' % (app_name(), process_name(), ups, downs)
-    osa(script, timeout=90)
+''' % (app_name(), process_name(), x + 5, y + 9)
+    osa(script)
 
 
 def _library_checkbox_value():
@@ -367,40 +448,15 @@ end tell
 
 
 def list_tracks():
-    """Read tracks from the 18px-tall header text fields.
+    """Read tracks from the 18px-tall header text fields (bounded scan).
 
     Two columns exist per track row: the header's patch/instrument label and
     the track name. Returns [{"name": ..., "patch": ...}] top to bottom;
-    the visible text lives in the AX `description` attribute.
+    the visible text lives in the AX `description` attribute. Note Logic
+    auto-renames a track to its patch name after load_patch unless the track
+    was named manually.
     """
-    script = '''
-with timeout of 60 seconds
-    tell application "System Events"
-        tell process "%s"
-            set out to ""
-            set allEls to entire contents of window 1
-            repeat with el in allEls
-                try
-                    if role of el is "AXTextField" then
-                        set s to size of el
-                        if (item 2 of s is 18) and (item 1 of s > 100) then
-                            set p to position of el
-                            set out to out & (item 1 of p) & "|" & (item 2 of p) & "|" & (description of el) & linefeed
-                        end if
-                    end if
-                end try
-            end repeat
-            return out
-        end tell
-    end tell
-end timeout
-''' % process_name()
-    out = osa(script, timeout=90)
-    fields = []
-    for line in out.splitlines():
-        parts = line.split("|", 2)
-        if len(parts) == 3:
-            fields.append((int(parts[0]), int(parts[1]), parts[2]))
+    fields = _track_rows()
     if not fields:
         return []
     xs = sorted({x for x, _, _ in fields})

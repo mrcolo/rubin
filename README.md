@@ -101,10 +101,12 @@ python3 server.py --demo --write-only   # just write the .mid
 
 ## Known limits
 
-- Patch loading and import drive Logic's UI; they're anchored to stable AX
-  landmarks but a future Logic redesign could move them. `list_tracks` exists
-  so failures are visible, not silent.
-- `select_track` walks with arrow keys (Logic has no "select track N"),
-  capped at 60 tracks.
+- Patch loading, track selection, and import drive Logic's UI; they're
+  anchored to stable AX landmarks (bounded subtree scans, never the whole
+  window — real projects have thousands of AX elements) but a future Logic
+  redesign could move them. `list_tracks` exists so failures are visible,
+  not silent.
+- Logic auto-renames a track to its patch name after `load_patch` unless the
+  track was named manually first.
 - Tested on Logic Pro X 10.x/11 ("Logic Pro X.app" and "Logic Pro.app" are
   both handled), macOS 14+.
