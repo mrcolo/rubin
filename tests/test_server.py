@@ -82,5 +82,16 @@ class TestProtocol(unittest.TestCase):
         self.assertEqual(out[2]["error"]["code"], -32601)
 
 
+class TestCheckFlag(unittest.TestCase):
+    def test_check_outputs_json(self):
+        p = subprocess.run([sys.executable, SERVER, "--check"],
+                           capture_output=True, text=True, timeout=60)
+        self.assertEqual(p.returncode, 0)
+        status = json.loads(p.stdout)
+        self.assertIn("logic_installed", status)
+        self.assertIn("factory_patches", status)
+        self.assertIn("transcription", status)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -537,7 +537,40 @@ def serve():
                 _error(mid, -32603, "internal error")
 
 
+def check():
+    """Environment health as JSON: what works, what's missing."""
+    import glob
+
+    status = {}
+    status["logic_installed"] = os.path.isdir(
+        "/Applications/%s.app" % logic_ctl.app_name())
+    try:
+        status["logic_running"] = logic_ctl.logic_running()
+    except Exception as e:
+        status["logic_running"] = "error: %s" % e
+    status["factory_patches"] = len(patches._build_index())
+    status["channel_strips"] = len(patches._build_cst_index())
+    try:
+        aus = logic_ctl.list_audio_units()
+        status["audio_units"] = len(aus)
+        status["third_party_synths"] = sorted(
+            a["name"] for a in aus
+            if a["type"] == "instrument" and a["manufacturer"] != "Apple")
+    except Exception as e:
+        status["audio_units"] = "error: %s" % e
+    bp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                      ".venv-bp", "bin", "basic-pitch")
+    status["transcription"] = "ready" if os.path.isfile(bp) else (
+        "missing: python3 -m venv .venv-bp && .venv-bp/bin/pip install basic-pitch")
+    cache = os.path.expanduser("~/.cache/rubin/midi")
+    status["transcription_cache"] = len(glob.glob(os.path.join(cache, "*.mid")))
+    print(json.dumps(status, indent=1))
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--check":
+        check()
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "--demo":
         import demo_beat
 
