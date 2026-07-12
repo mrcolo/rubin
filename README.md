@@ -1,5 +1,7 @@
 # rubin
 
+[![tests](https://github.com/mrcolo/rubin/actions/workflows/test.yml/badge.svg)](https://github.com/mrcolo/rubin/actions/workflows/test.yml)
+
 A minimal, dependency-free MCP server that turns Logic Pro into an
 AI-playable instrument: compose MIDI, load any factory patch (Alchemy
 included), and drive the transport.

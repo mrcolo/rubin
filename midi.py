@@ -238,7 +238,13 @@ def progression_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=None,
             for bar in range(bars_per_chord):
                 b = start + bar * beats_per_bar
                 last = bar == bars_per_chord - 1
-                notes.append((b, beats_per_bar - 1.25, root, hv(ci, bar, vel)))
+                if bar % 2 == 1:
+                    # varied bar: shorter hold + a quiet syncopated push
+                    notes.append((b, beats_per_bar - 1.75, root, hv(ci, bar, vel)))
+                    notes.append((b + beats_per_bar - 1.5, 0.4, root,
+                                  hv(ci, bar + 3, vel - 20)))
+                else:
+                    notes.append((b, beats_per_bar - 1.25, root, hv(ci, bar, vel)))
                 notes.append((b + beats_per_bar - 1, 0.5, root, hv(ci, bar + 1, vel - 12)))
                 notes.append((b + beats_per_bar - 0.5, 0.5,
                               root + (12 if last else 0), hv(ci, bar + 2, vel - 16)))

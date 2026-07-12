@@ -187,6 +187,12 @@ class TestProgressionStyles(unittest.TestCase):
         for (s1, e1), (s2, _e2) in zip(spans, spans[1:]):
             self.assertLessEqual(e1, s2 + 0.01)
 
+    def test_bass_bars_vary(self):
+        notes = midi.progression_notes(["Am"], bars_per_chord=2, style="bass")
+        bar0 = sorted(n[0] for n in notes if n[0] < 4)
+        bar1 = sorted(n[0] - 4 for n in notes if n[0] >= 4)
+        self.assertNotEqual(bar0, bar1)  # rhythm differs bar to bar
+
     def test_arp_never_stutters(self):
         for chord in ("Am", "Cmaj7", "E7", "Fsus4"):
             pitches = [n[2] for n in midi.progression_notes(
