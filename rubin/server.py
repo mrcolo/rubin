@@ -236,6 +236,19 @@ TOOLS = [
         },
     },
     {
+        "name": "import_audio",
+        "description": (
+            "Import an audio file (wav/aiff/mp3) into the open Logic project on a "
+            "new track at the playhead (File > Import > Audio File). Requires the "
+            "display awake and a project window; verify with list_tracks."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "Absolute path to audio file"}},
+            "required": ["path"],
+        },
+    },
+    {
         "name": "transport",
         "description": "Logic transport via key command: play, stop, record, go_to_beginning.",
         "inputSchema": {
@@ -588,6 +601,13 @@ def handle_tool(name, args):
             raise ValueError("no such file: %s" % path)
         logic_ctl.open_midi_as_project(path)
         return "Opened %s in Logic Pro as a new project" % path
+
+    if name == "import_audio":
+        path = os.path.expanduser(args["path"])
+        if not os.path.isfile(path):
+            raise ValueError("no such file: %s" % path)
+        logic_ctl.import_audio(path)
+        return "Import-audio sequence sent for %s." % path + _import_readback()
 
     if name == "transport":
         logic_ctl.transport(args["command"])

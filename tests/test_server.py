@@ -39,7 +39,7 @@ class TestProtocol(unittest.TestCase):
             names,
             {"compose_midi", "import_midi", "compose_and_import", "open_midi_as_project",
              "transport", "select_track", "find_patches", "load_patch", "list_tracks",
-             "transcribe_audio", "list_transcriptions", "analyze_midi",
+             "transcribe_audio", "list_transcriptions", "analyze_midi", "import_audio",
              "answer_dialog", "save_project", "list_plugins", "find_channel_strips",
              "find_surge_presets", "describe_midi", "suggest_accompaniment", "logic_status"},
         )

@@ -196,6 +196,39 @@ end tell
     return choice
 
 
+def import_audio(path):
+    """File > Import > Audio File..., driven to `path`. Lands the audio on a
+    new track at the playhead. Polls for the file panel like import_midi."""
+    if not logic_running():
+        raise LogicError("Logic Pro is not running")
+    script = '''
+tell application "%(app)s" to activate
+delay 0.6
+tell application "System Events"
+    tell process "%(proc)s"
+        set frontmost to true
+        delay 0.3
+        set m to menu 1 of menu item "Import" of menu 1 of menu bar item "File" of menu bar 1
+        click (first menu item of m whose name begins with "Audio")
+        delay 1.2
+        keystroke "g" using {command down, shift down}
+        delay 0.8
+        keystroke "%(path)s"
+        delay 0.5
+        key code 36
+        delay 1.0
+        key code 36
+        delay 1.5
+    end tell
+end tell
+''' % {
+        "app": app_name(),
+        "proc": process_name(),
+        "path": path.replace("\\", "\\\\").replace('"', '\\"'),
+    }
+    osa(script, timeout=90)
+
+
 def open_midi_as_project(path):
     """Open a .mid directly in Logic — creates a new project from the file.
 
