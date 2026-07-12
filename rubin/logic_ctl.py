@@ -4,7 +4,9 @@ Only used for the few things a MIDI file can't do by itself:
 importing the file into the open project, and transport control.
 """
 
+import os
 import subprocess
+import time
 
 
 class LogicError(RuntimeError):
@@ -196,37 +198,77 @@ end tell
     return choice
 
 
+def _file_panel_frontmost():
+    """True only if a file open/save panel (sheet or window) is frontmost —
+    the ONLY safe target for path keystrokes. Anything else and typing a path
+    leaks into the arrange window as key commands (r=record, etc.)."""
+    script = '''
+tell application "System Events" to tell process "%s"
+    try
+        if exists sheet 1 of window 1 then
+            if exists text field 1 of sheet 1 of window 1 then return "yes"
+        end if
+    end try
+    repeat with w in windows
+        try
+            if name of w is in {"Open", "Import"} then return "yes"
+        end try
+    end repeat
+    return "no"
+end tell
+''' % process_name()
+    return osa(script, timeout=15) == "yes"
+
+
 def import_audio(path):
-    """File > Import > Audio File..., driven to `path`. Lands the audio on a
-    new track at the playhead. Polls for the file panel like import_midi."""
+    """File > Import > Audio File..., driven SAFELY to `path`.
+
+    Hard rule learned the hard way: never keystroke a path unless a file panel
+    is confirmed frontmost. If the panel doesn't appear, abort with the menu
+    still harmlessly open rather than typing into the arrange window (where a
+    path's letters fire as key commands and can start a recording).
+    """
     if not logic_running():
         raise LogicError("Logic Pro is not running")
-    script = '''
+    path = os.path.expanduser(path)
+    if not os.path.isfile(path):
+        raise LogicError("no such audio file: %s" % path)
+    # open the menu item
+    osa('''
 tell application "%(app)s" to activate
-delay 0.6
-tell application "System Events"
-    tell process "%(proc)s"
-        set frontmost to true
-        delay 0.3
-        set m to menu 1 of menu item "Import" of menu 1 of menu bar item "File" of menu bar 1
-        click (first menu item of m whose name begins with "Audio")
-        delay 1.2
-        keystroke "g" using {command down, shift down}
-        delay 0.8
-        keystroke "%(path)s"
-        delay 0.5
-        key code 36
-        delay 1.0
-        key code 36
-        delay 1.5
-    end tell
+delay 0.5
+tell application "System Events" to tell process "%(proc)s"
+    set frontmost to true
+    set m to menu 1 of menu item "Import" of menu 1 of menu bar item "File" of menu bar 1
+    click (first menu item of m whose name begins with "Audio")
 end tell
-''' % {
-        "app": app_name(),
-        "proc": process_name(),
-        "path": path.replace("\\", "\\\\").replace('"', '\\"'),
-    }
-    osa(script, timeout=90)
+''' % {"app": app_name(), "proc": process_name()}, timeout=30)
+    # poll for the panel; abort (Escape) if it never shows — do NOT type blind
+    for _ in range(12):
+        time.sleep(0.5)
+        if _file_panel_frontmost():
+            break
+    else:
+        osa('tell application "System Events" to tell process "%s" to key code 53'
+            % process_name())
+        raise LogicError(
+            "audio-import file panel did not appear — aborted without typing "
+            "(refusing to leak a path into the arrange window)")
+    # panel confirmed: set the Go-to-folder field by value, not blind keystroke
+    osa('''
+tell application "System Events" to tell process "%(proc)s"
+    keystroke "g" using {command down, shift down}
+    delay 0.8
+    set tf to text field 1 of sheet 1 of window 1
+    set value of tf to "%(path)s"
+    delay 0.3
+    key code 36
+    delay 0.9
+    key code 36
+    delay 1.2
+end tell
+''' % {"proc": process_name(),
+        "path": path.replace("\\", "\\\\").replace('"', '\\"')}, timeout=45)
 
 
 def open_midi_as_project(path):

@@ -238,9 +238,11 @@ TOOLS = [
     {
         "name": "import_audio",
         "description": (
-            "Import an audio file (wav/aiff/mp3) into the open Logic project on a "
-            "new track at the playhead (File > Import > Audio File). Requires the "
-            "display awake and a project window; verify with list_tracks."
+            "Attempt to import an audio file into the open project. NOTE: Logic's "
+            "audio import opens a Browser pane, not a file dialog, so this often "
+            "aborts safely without importing — it will NEVER type a path into the "
+            "arrange window (that caused stray key-commands historically). For "
+            "reliable audio import, drag the file from Finder onto a track."
         ),
         "inputSchema": {
             "type": "object",

@@ -162,6 +162,12 @@ python3 server.py --demo --write-only   # just write the .mid
 - `tests/` — unit + protocol tests
 
 ## Known limits
+- `import_audio` is best-effort and often aborts: Logic imports audio through
+  a Browser pane, not a file dialog. It is hardened to NEVER type a path into
+  the arrange window (a path's letters fire as key commands — `r` starts a
+  recording — which once damaged a live session). Drag audio from Finder for
+  reliability.
+
 
 - Patch loading, track selection, and import drive Logic's UI; they're
   anchored to stable AX landmarks (bounded subtree scans, never the whole
