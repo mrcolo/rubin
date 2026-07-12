@@ -142,5 +142,40 @@ class TestWriteSMF(unittest.TestCase):
             os.unlink(path)
 
 
+class TestSwing(unittest.TestCase):
+    def ticks_of_first_two_notes(self, data):
+        body = walk_chunks(data)[1]
+        # first delta is byte 0 (note at beat 0); find second note-on delta
+        return body
+
+    def test_offbeat_moves(self):
+        notes = [(0, 0.4, 60, 100), (0.5, 0.4, 62, 100)]
+        straight = midi.build_smf(120, [{"channel": 0, "notes": notes}])
+        swung = midi.build_smf(120, [{"channel": 0, "notes": notes}], swing=62)
+        self.assertNotEqual(straight, swung)
+        # offbeat lands at 0.62 beats = 298 ticks (rounded)
+        self.assertEqual(midi._swing_start(0.5, 62, 0.5), 0.62)
+        self.assertEqual(midi._swing_start(1.5, 62, 0.5), 1.62)
+
+    def test_onbeat_unmoved(self):
+        self.assertEqual(midi._swing_start(1.0, 62, 0.5), 1.0)
+        self.assertEqual(midi._swing_start(0.25, 62, 0.5), 0.25)
+
+    def test_straight_is_noop(self):
+        notes = [(0, 0.4, 60, 100), (0.5, 0.4, 62, 100)]
+        a = midi.build_smf(120, [{"channel": 0, "notes": notes}])
+        b = midi.build_smf(120, [{"channel": 0, "notes": notes}], swing=50)
+        self.assertEqual(a, b)
+
+    def test_16th_unit(self):
+        self.assertAlmostEqual(midi._swing_start(0.25, 62, 0.25), 0.31)
+
+    def test_per_track_override(self):
+        notes = [(0.5, 0.4, 62, 100)]
+        g = midi.build_smf(120, [{"channel": 0, "notes": notes, "swing": 50}], swing=66)
+        s = midi.build_smf(120, [{"channel": 0, "notes": notes}], swing=50)
+        self.assertEqual(g, s)
+
+
 if __name__ == "__main__":
     unittest.main()

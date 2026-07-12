@@ -56,7 +56,9 @@ Note format: `{start, dur, pitch, vel}` — start/dur in beats, pitch 0–127
 39 clap, 42 closed hat, 46 open hat). Tracks also accept `cc`
 (`{beat, controller, value}`), `bends` (`{beat, value}` −8192…8191),
 `program`, `volume`, `pan`. Compositions accept `time_sig` (`[3, 4]`),
-`key` (`"Am"`, `"Eb"`, `"F#m"`) and `tempo_changes` (`[{beat, bpm}]`).
+`key` (`"Am"`, `"Eb"`, `"F#m"`), `tempo_changes` (`[{beat, bpm}]`), and
+`swing` (50 = straight, ~62 = MPC feel; `swing_unit` 0.5/0.25 for
+8th/16th swing; per-track override supported).
 
 ### Example: an Alchemy pad in three calls
 

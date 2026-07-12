@@ -47,15 +47,33 @@ def key_signature_meta(key):
     return bytes([0xFF, 0x59, 0x02, sf & 0xFF, 1 if minor else 0])
 
 
-def build_smf(tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None):
+def _swing_start(start, swing, unit):
+    """Shift offbeat starts DAW-style: 50 = straight, 62 = classic MPC feel.
+
+    `unit` is the swung subdivision in beats (0.5 = 8ths, 0.25 = 16ths).
+    Only notes sitting on the offbeat of a unit pair are moved.
+    """
+    if not swing or abs(swing - 50) < 0.01:
+        return start
+    pair = unit * 2
+    pos = start % pair
+    if abs(pos - unit) < 1e-6:  # exactly on the offbeat
+        return start - unit + pair * (float(swing) / 100.0)
+    return start
+
+
+def build_smf(tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None,
+              swing=None, swing_unit=0.5):
     """tracks: [{name, channel, program?, volume?, pan?,
                  notes: [(start_beats, dur_beats, pitch, vel), ...],
                  cc: [(beat, controller, value), ...],
                  bends: [(beat, value), ...]}]  # bend value -8192..8191
 
     `key` is a name like 'Am' or 'Eb'; `tempo_changes` is [(beat, bpm), ...]
-    applied after the initial tempo. Returns SMF format-1 bytes. Channel 9 is
-    the GM drum channel.
+    applied after the initial tempo. `swing` (50-75, 50 = straight) moves
+    offbeat notes late, DAW-style; `swing_unit` is the subdivision in beats
+    (0.5 = 8th swing, 0.25 = 16th swing); tracks may override with their own
+    `swing`. Returns SMF format-1 bytes. Channel 9 is the GM drum channel.
     """
     chunks = []
     num, den = time_sig
@@ -92,10 +110,12 @@ def build_smf(tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None):
             ev.append((0, 0, bytes([0xB0 | ch, 7, max(0, min(127, int(t["volume"])))])))
         if t.get("pan") is not None:
             ev.append((0, 0, bytes([0xB0 | ch, 10, max(0, min(127, int(t["pan"])))])))
+        track_swing = t.get("swing", swing)
         for note in t["notes"]:
             start, dur, pitch, vel = note
             if float(start) < 0:
                 raise ValueError("negative note start: %r" % (note,))
+            start = _swing_start(float(start), track_swing, swing_unit)
             pitch = int(pitch)
             if not 0 <= pitch <= 127:
                 raise ValueError("pitch out of range 0-127: %r" % (note,))
@@ -127,8 +147,10 @@ def build_smf(tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None):
     return header + b"".join(chunks)
 
 
-def write_smf(path, tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None):
-    data = build_smf(tempo_bpm, tracks, time_sig, key=key, tempo_changes=tempo_changes)
+def write_smf(path, tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None,
+              swing=None, swing_unit=0.5):
+    data = build_smf(tempo_bpm, tracks, time_sig, key=key, tempo_changes=tempo_changes,
+                     swing=swing, swing_unit=swing_unit)
     with open(path, "wb") as f:
         f.write(data)
     return len(data)

@@ -67,6 +67,7 @@ TRACK_SCHEMA = {
         },
         "volume": {"type": "integer", "description": "Optional initial CC7 volume 0-127"},
         "pan": {"type": "integer", "description": "Optional initial CC10 pan 0-127 (64 = center)"},
+        "swing": {"type": "number", "description": "Optional per-track swing override (50-75)"},
         "notes": {"type": "array", "items": NOTE_SCHEMA},
         "cc": {"type": "array", "items": CC_SCHEMA, "description": "Optional controller automation"},
         "bends": {"type": "array", "items": BEND_SCHEMA, "description": "Optional pitch bends"},
@@ -114,6 +115,8 @@ TOOLS = [
                 "time_sig": TIME_SIG_SCHEMA,
                 "key": KEY_SCHEMA,
                 "tempo_changes": TEMPO_CHANGES_SCHEMA,
+                "swing": {"type": "number", "description": "50-75; 50 = straight, ~62 = MPC swing (offbeats late)"},
+                "swing_unit": {"type": "number", "description": "Swung subdivision in beats: 0.5 = 8ths (default), 0.25 = 16ths"},
                 "path": {"type": "string", "description": "Output .mid path (default ~/Desktop/<name>.mid)"},
                 "name": {"type": "string", "description": "Base filename if path not given"},
             },
@@ -144,6 +147,8 @@ TOOLS = [
                 "time_sig": TIME_SIG_SCHEMA,
                 "key": KEY_SCHEMA,
                 "tempo_changes": TEMPO_CHANGES_SCHEMA,
+                "swing": {"type": "number", "description": "50-75; 50 = straight, ~62 = MPC swing (offbeats late)"},
+                "swing_unit": {"type": "number", "description": "Swung subdivision in beats: 0.5 = 8ths (default), 0.25 = 16ths"},
                 "name": {"type": "string", "description": "Base filename (default 'composition')"},
             },
             "required": ["tempo", "tracks"],
@@ -335,6 +340,7 @@ def _do_compose(args):
                 "program": t.get("program"),
                 "volume": t.get("volume"),
                 "pan": t.get("pan"),
+                "swing": t.get("swing"),
                 "notes": [
                     n if isinstance(n, (list, tuple))
                     else (n["start"], n["dur"], n["pitch"], n["vel"])
@@ -359,6 +365,7 @@ def _do_compose(args):
     size = midilib.write_smf(
         path, args["tempo"], tracks, time_sig,
         key=args.get("key"), tempo_changes=tempo_changes,
+        swing=args.get("swing"), swing_unit=args.get("swing_unit", 0.5),
     )
     return path, size
 
