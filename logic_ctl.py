@@ -527,10 +527,14 @@ def list_audio_units():
     can host. No UI involved.
     """
     p = subprocess.run(["auval", "-a"], capture_output=True, text=True, timeout=60)
+    return _parse_auval(p.stdout)
+
+
+def _parse_auval(text):
     kinds = {"aumu": "instrument", "aufx": "effect", "aumf": "music_effect",
              "augn": "generator"}
     out = []
-    for line in p.stdout.splitlines():
+    for line in text.splitlines():
         seg = line.strip().split("  -  ", 1)
         if len(seg) == 2 and len(seg[0].split()) == 3:
             kind = seg[0].split()[0]
