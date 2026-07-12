@@ -126,5 +126,44 @@ class TestVerifyFlag(unittest.TestCase):
             os.unlink(path)
 
 
+class TestEntrances(unittest.TestCase):
+    def test_staged_build_has_rising_contour(self):
+        import midi_read
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            import server
+            server._do_compose({"tempo": 85, "path": path, "tracks": [
+                {"name": "Pad", "channel": 1,
+                 "progression": {"chords": ["Am", "F", "C", "E"], "repeat": 2}},
+                {"name": "Drums", "channel": 9,
+                 "drums": {"pattern": "half_time", "bars": 12, "start_bar": 4}},
+                {"name": "Arp", "channel": 2,
+                 "progression": {"chords": ["Am", "F", "C", "E"],
+                                 "style": "arp", "start_bar": 8}},
+            ]})
+            out = midi_read.analyze(path)
+            curve = out["density_curve"]
+            self.assertLess(curve[0]["notes_per_beat"], curve[1]["notes_per_beat"])
+            self.assertLess(curve[1]["notes_per_beat"], curve[2]["notes_per_beat"])
+            self.assertEqual(curve[0]["active_tracks"], 1)
+            self.assertEqual(curve[2]["active_tracks"], 3)
+        finally:
+            os.unlink(path)
+
+    def test_repeat_doubles_length(self):
+        import midi_read, server
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            server._do_compose({"tempo": 90, "path": path, "tracks": [
+                {"channel": 1, "progression": {"chords": ["Am", "F"], "repeat": 2}}]})
+            _p, _t, tracks = midi_read.parse_smf(open(path, "rb").read())
+            self.assertEqual(midi_read.guess_chords(tracks),
+                             ["Am", "Am", "F", "F", "Am", "Am", "F", "F"])
+        finally:
+            os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()

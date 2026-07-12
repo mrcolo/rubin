@@ -79,6 +79,7 @@ TRACK_SCHEMA = {
                 "pattern": {"type": "string",
                             "enum": ["half_time", "four_on_floor", "boom_bap", "trap"]},
                 "bars": {"type": "integer", "description": "Default 8"},
+                "start_bar": {"type": "integer", "description": "Delay entrance: pattern starts at this bar (0-based, default 0)"},
                 "fills": {"type": "boolean", "description": "Snare-roll fills every 4th bar (default true)"},
             },
             "required": ["pattern"],
@@ -92,6 +93,8 @@ TRACK_SCHEMA = {
             "properties": {
                 "chords": {"type": "array", "items": {"type": "string"}},
                 "bars_per_chord": {"type": "integer", "description": "Default 2"},
+                "start_bar": {"type": "integer", "description": "Delay entrance: first chord starts at this bar (0-based, default 0)"},
+                "repeat": {"type": "integer", "description": "Play the chord list this many times (default 1)"},
                 "style": {"type": "string", "enum": ["pad", "bass", "arp"],
                           "description": "pad = sustained voicings (default), bass = root groove, arp = 8th cycle"},
                 "octave": {"type": "integer", "description": "Root octave (defaults per style)"},
@@ -400,14 +403,20 @@ def _do_compose(args):
             bars=drums.get("bars", 8),
             fills=drums.get("fills", True),
         ) if drums else []
+        if drums and drums.get("start_bar"):
+            off = drums["start_bar"] * 4.0
+            drum_notes = [(s + off, d, p, v) for s, d, p, v in drum_notes]
         prog = t.get("progression")
         prog_notes = midilib.progression_notes(
-            prog["chords"],
+            prog["chords"] * max(1, int(prog.get("repeat", 1))),
             bars_per_chord=prog.get("bars_per_chord", 2),
             octave=prog.get("octave"),
             vel=prog.get("vel"),
             style=prog.get("style", "pad"),
         ) if prog else []
+        if prog and prog.get("start_bar"):
+            off = prog["start_bar"] * 4.0
+            prog_notes = [(s + off, d, p, v) for s, d, p, v in prog_notes]
         tracks.append(
             {
                 "name": t.get("name"),
