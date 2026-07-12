@@ -280,8 +280,10 @@ TOOLS = [
         "description": (
             "Search Logic's factory channel-strip settings (.cst) — complete FX "
             "chains (EQ, compression, sends, spaces). Categories: 'Track/...', "
-            "'Bus' (reverbs/delays), 'Output/02 Mastering', 'Instrument'. Load one "
-            "by searching its exact name in the Library (load_patch)."
+            "'Bus' (reverbs/delays), 'Output/02 Mastering', 'Instrument'. "
+            "Discovery only: the Library search does NOT index .cst names "
+            "(verified), so guide the user to load them via the channel strip's "
+            "Setting button, or prefer load_patch (patches embed full FX chains)."
         ),
         "inputSchema": {
             "type": "object",
