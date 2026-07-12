@@ -78,6 +78,24 @@ TIME_SIG_SCHEMA = {
     "description": "Optional [numerator, denominator], default [4, 4]",
 }
 
+KEY_SCHEMA = {
+    "type": "string",
+    "description": "Optional key signature, e.g. 'Am', 'C', 'F#m', 'Eb'",
+}
+
+TEMPO_CHANGES_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "beat": {"type": "number", "description": "Position in beats"},
+            "bpm": {"type": "number"},
+        },
+        "required": ["beat", "bpm"],
+    },
+    "description": "Optional mid-song tempo changes",
+}
+
 TOOLS = [
     {
         "name": "compose_midi",
@@ -92,6 +110,8 @@ TOOLS = [
                 "tempo": {"type": "number", "description": "BPM"},
                 "tracks": {"type": "array", "items": TRACK_SCHEMA},
                 "time_sig": TIME_SIG_SCHEMA,
+                "key": KEY_SCHEMA,
+                "tempo_changes": TEMPO_CHANGES_SCHEMA,
                 "path": {"type": "string", "description": "Output .mid path (default ~/Desktop/<name>.mid)"},
                 "name": {"type": "string", "description": "Base filename if path not given"},
             },
@@ -120,6 +140,8 @@ TOOLS = [
                 "tempo": {"type": "number"},
                 "tracks": {"type": "array", "items": TRACK_SCHEMA},
                 "time_sig": TIME_SIG_SCHEMA,
+                "key": KEY_SCHEMA,
+                "tempo_changes": TEMPO_CHANGES_SCHEMA,
                 "name": {"type": "string", "description": "Base filename (default 'composition')"},
             },
             "required": ["tempo", "tracks"],
@@ -262,7 +284,14 @@ def _do_compose(args):
             }
         )
     time_sig = tuple(args.get("time_sig") or (4, 4))
-    size = midilib.write_smf(path, args["tempo"], tracks, time_sig)
+    tempo_changes = [
+        tc if isinstance(tc, (list, tuple)) else (tc["beat"], tc["bpm"])
+        for tc in args.get("tempo_changes") or []
+    ]
+    size = midilib.write_smf(
+        path, args["tempo"], tracks, time_sig,
+        key=args.get("key"), tempo_changes=tempo_changes,
+    )
     return path, size
 
 

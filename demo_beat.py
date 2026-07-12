@@ -71,6 +71,7 @@ def weeknd_beat():
 
     return {
         "tempo": 85,
+        "key": "Am",
         "name": "weeknd_beat",
         "tracks": [
             {"name": "Drums", "channel": 9, "notes": drums},

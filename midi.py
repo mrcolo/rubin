@@ -28,26 +28,59 @@ def _track_chunk(events):
     return b"MTrk" + len(out).to_bytes(4, "big") + bytes(out)
 
 
-def build_smf(tempo_bpm, tracks, time_sig=(4, 4)):
+# circle of fifths: name -> sharps (negative = flats)
+_KEY_SF = {"C": 0, "G": 1, "D": 2, "A": 3, "E": 4, "B": 5, "F#": 6, "C#": 7,
+           "F": -1, "Bb": -2, "Eb": -3, "Ab": -4, "Db": -5, "Gb": -6, "Cb": -7}
+# relative majors for minor keys: Am has the same signature as C
+_MINOR_TO_MAJOR = {"A": "C", "E": "G", "B": "D", "F#": "A", "C#": "E", "G#": "B",
+                   "D#": "F#", "A#": "C#", "D": "F", "G": "Bb", "C": "Eb",
+                   "F": "Ab", "Bb": "Db", "Eb": "Gb", "Ab": "Cb"}
+
+
+def key_signature_meta(key):
+    """FF 59 meta from a key name: 'C', 'F#', 'Bb', 'Am', 'C#m'..."""
+    key = key.strip()
+    minor = key.endswith("m")
+    root = key[:-1] if minor else key
+    root = root[0].upper() + root[1:]
+    sf = _KEY_SF[_MINOR_TO_MAJOR[root] if minor else root]  # KeyError = bad key
+    return bytes([0xFF, 0x59, 0x02, sf & 0xFF, 1 if minor else 0])
+
+
+def build_smf(tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None):
     """tracks: [{name, channel, program?, volume?, pan?,
                  notes: [(start_beats, dur_beats, pitch, vel), ...],
                  cc: [(beat, controller, value), ...],
                  bends: [(beat, value), ...]}]  # bend value -8192..8191
 
-    Returns SMF format-1 bytes. Channel 9 is the GM drum channel.
+    `key` is a name like 'Am' or 'Eb'; `tempo_changes` is [(beat, bpm), ...]
+    applied after the initial tempo. Returns SMF format-1 bytes. Channel 9 is
+    the GM drum channel.
     """
     chunks = []
-    tempo_us = round(60_000_000 / float(tempo_bpm))
     num, den = time_sig
     den_pow = {1: 0, 2: 1, 4: 2, 8: 3, 16: 4}[den]
+
+    def tempo_event(beat, bpm):
+        if not 4 <= float(bpm) <= 999:
+            raise ValueError("tempo out of range 4-999: %r" % bpm)
+        us = round(60_000_000 / float(bpm))
+        return (round(float(beat) * PPQ), 0, b"\xff\x51\x03" + us.to_bytes(3, "big"))
+
     meta = [
-        (0, 0, b"\xff\x51\x03" + tempo_us.to_bytes(3, "big")),
+        tempo_event(0, tempo_bpm),
         (0, 0, bytes([0xFF, 0x58, 0x04, num, den_pow, 24, 8])),
     ]
+    if key:
+        meta.append((0, 0, key_signature_meta(key)))
+    for beat, bpm in tempo_changes or []:
+        meta.append(tempo_event(beat, bpm))
     chunks.append(_track_chunk(meta))
 
     for t in tracks:
-        ch = int(t["channel"]) & 0x0F
+        ch = int(t["channel"])
+        if not 0 <= ch <= 15:
+            raise ValueError("channel out of range 0-15: %r" % ch)
         ev = []
         name = t.get("name")
         if name:
@@ -61,11 +94,15 @@ def build_smf(tempo_bpm, tracks, time_sig=(4, 4)):
             ev.append((0, 0, bytes([0xB0 | ch, 10, max(0, min(127, int(t["pan"])))])))
         for note in t["notes"]:
             start, dur, pitch, vel = note
+            if float(start) < 0:
+                raise ValueError("negative note start: %r" % (note,))
+            pitch = int(pitch)
+            if not 0 <= pitch <= 127:
+                raise ValueError("pitch out of range 0-127: %r" % (note,))
             on = round(float(start) * PPQ)
             off = round((float(start) + float(dur)) * PPQ)
             if off <= on:
                 off = on + 1
-            pitch = int(pitch) & 0x7F
             vel = max(1, min(127, int(vel)))
             # note-offs (prio 1) sort before note-ons (prio 2) at the same tick
             ev.append((on, 2, bytes([0x90 | ch, pitch, vel])))
@@ -90,8 +127,8 @@ def build_smf(tempo_bpm, tracks, time_sig=(4, 4)):
     return header + b"".join(chunks)
 
 
-def write_smf(path, tempo_bpm, tracks, time_sig=(4, 4)):
-    data = build_smf(tempo_bpm, tracks, time_sig)
+def write_smf(path, tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None):
+    data = build_smf(tempo_bpm, tracks, time_sig, key=key, tempo_changes=tempo_changes)
     with open(path, "wb") as f:
         f.write(data)
     return len(data)

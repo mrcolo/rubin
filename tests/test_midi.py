@@ -85,6 +85,39 @@ class TestBuildSMF(unittest.TestCase):
         data = midi.build_smf(120, [{"channel": 0, "notes": []}], time_sig=(3, 4))
         self.assertIn(bytes([0xFF, 0x58, 0x04, 3, 2, 24, 8]), walk_chunks(data)[0])
 
+    def test_key_signature(self):
+        cases = {
+            "C": (0, 0), "Am": (0, 1), "F#": (6, 0), "Bb": (254, 0),
+            "Ebm": (250, 1), "C#m": (4, 1),
+        }
+        for key, (sf, mi) in cases.items():
+            data = midi.build_smf(120, [{"channel": 0, "notes": []}], key=key)
+            self.assertIn(bytes([0xFF, 0x59, 0x02, sf, mi]), walk_chunks(data)[0],
+                          "key %s" % key)
+
+    def test_bad_key_raises(self):
+        with self.assertRaises(KeyError):
+            midi.build_smf(120, [{"channel": 0, "notes": []}], key="H")
+
+    def test_tempo_changes(self):
+        data = midi.build_smf(
+            120, [{"channel": 0, "notes": []}], tempo_changes=[(8, 90)]
+        )
+        meta = walk_chunks(data)[0]
+        for bpm in (120, 90):
+            us = round(60_000_000 / bpm)
+            self.assertIn(b"\xff\x51\x03" + us.to_bytes(3, "big"), meta)
+
+    def test_validation_errors(self):
+        with self.assertRaises(ValueError):
+            midi.build_smf(120, [{"channel": 16, "notes": []}])
+        with self.assertRaises(ValueError):
+            midi.build_smf(120, [{"channel": 0, "notes": [(-1, 1, 60, 100)]}])
+        with self.assertRaises(ValueError):
+            midi.build_smf(120, [{"channel": 0, "notes": [(0, 1, 200, 100)]}])
+        with self.assertRaises(ValueError):
+            midi.build_smf(2000, [{"channel": 0, "notes": []}])
+
     def test_delta_times_monotonic(self):
         # decode deltas of the note track and ensure none are negative (vlq can't
         # encode negatives, but a sorting bug would corrupt adjacent events)

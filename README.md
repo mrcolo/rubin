@@ -43,7 +43,8 @@ Note format: `{start, dur, pitch, vel}` — start/dur in beats, pitch 0–127
 (60 = middle C), velocity 1–127. Channel 9 is GM drums (36 kick, 38 snare,
 39 clap, 42 closed hat, 46 open hat). Tracks also accept `cc`
 (`{beat, controller, value}`), `bends` (`{beat, value}` −8192…8191),
-`program`, `volume`, `pan`.
+`program`, `volume`, `pan`. Compositions accept `time_sig` (`[3, 4]`),
+`key` (`"Am"`, `"Eb"`, `"F#m"`) and `tempo_changes` (`[{beat, bpm}]`).
 
 ### Example: an Alchemy pad in three calls
 
