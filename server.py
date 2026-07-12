@@ -591,7 +591,19 @@ def check():
     print(json.dumps(status, indent=1))
 
 
+def verify(path):
+    """Pre-flight a .mid: full analysis to stdout, exit 1 on warnings."""
+    out = midi_read.analyze(os.path.expanduser(path))
+    print(json.dumps(out, indent=1))
+    warns = out.get("warnings", [])
+    if warns:
+        sys.stderr.write("%d warning(s) - see 'warnings' above\n" % len(warns))
+    return 1 if warns else 0
+
+
 def main():
+    if len(sys.argv) > 2 and sys.argv[1] == "--verify":
+        sys.exit(verify(sys.argv[2]))
     if len(sys.argv) > 1 and sys.argv[1] == "--check":
         check()
         return

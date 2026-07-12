@@ -7,6 +7,7 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVER = os.path.join(ROOT, "server.py")
+sys.path.insert(0, ROOT)
 
 
 def rpc(messages):
@@ -92,6 +93,37 @@ class TestCheckFlag(unittest.TestCase):
         self.assertIn("logic_installed", status)
         self.assertIn("factory_patches", status)
         self.assertIn("transcription", status)
+
+
+class TestVerifyFlag(unittest.TestCase):
+    def _write(self, tracks):
+        import midi
+        f = tempfile.NamedTemporaryFile(suffix=".mid", delete=False)
+        f.close()
+        midi.write_smf(f.name, 90, tracks)
+        return f.name
+
+    def test_clean_file_exits_zero(self):
+        path = self._write([{"name": "L", "channel": 0, "notes":
+            [(i, 0.5, 70 + i % 12, 90 + ((i * 7) % 9) - 4) for i in range(16)]}])
+        try:
+            p = subprocess.run([sys.executable, SERVER, "--verify", path],
+                               capture_output=True, text=True, timeout=30)
+            self.assertEqual(p.returncode, 0)
+            self.assertNotIn("warnings", json.loads(p.stdout))
+        finally:
+            os.unlink(path)
+
+    def test_flat_file_exits_one(self):
+        path = self._write([{"name": "R", "channel": 0, "notes":
+            [(i, 0.5, 60 + i % 24, 100) for i in range(16)]}])
+        try:
+            p = subprocess.run([sys.executable, SERVER, "--verify", path],
+                               capture_output=True, text=True, timeout=30)
+            self.assertEqual(p.returncode, 1)
+            self.assertTrue(json.loads(p.stdout)["warnings"])
+        finally:
+            os.unlink(path)
 
 
 if __name__ == "__main__":

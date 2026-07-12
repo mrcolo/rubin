@@ -85,6 +85,7 @@ compose against it — is how rubin learns what source material sounds like.
 ```sh
 claude mcp add --scope user rubin -- /usr/bin/python3 ~/dev/rubin/server.py
 python3 server.py --check   # environment health: Logic, indexes, AUs, transcription
+python3 server.py --verify song.mid   # pre-flight: analysis + warnings, exit 1 if dirty
 # optional, for transcribe_audio:
 cd ~/dev/rubin && python3 -m venv .venv-bp && .venv-bp/bin/pip install basic-pitch
 ```
