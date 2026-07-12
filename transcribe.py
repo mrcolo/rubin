@@ -98,6 +98,12 @@ def transcribe(audio_path, label=None):
         "label": label or os.path.splitext(os.path.basename(audio_path))[0],
         "sha256": digest,
     }
+    try:
+        import midi_read
+
+        entry["summary"] = midi_read.describe(midi_path)
+    except Exception:
+        pass  # a summary is a nicety; the transcription itself succeeded
     index[digest] = entry
     _save_index(index)
     return entry
