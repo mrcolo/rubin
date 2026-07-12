@@ -322,5 +322,26 @@ class TestSuggestAccompaniment(unittest.TestCase):
             _os.unlink(out_path)
 
 
+class TestNumericPitchBounds(unittest.TestCase):
+    def test_negative_octave_register_detection(self):
+        import tempfile, os as _os, sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            # pitch 20 = G#-1: string-parsing the octave would misread this
+            midi.write_smf(path, 80, [{"name": "Sub", "channel": 0,
+                "notes": [(i, 0.9, 20 + (i % 3) * 5, 100 + (i % 7))
+                          for i in range(16)]}])
+            a = midi_read.analyze(path)
+            self.assertEqual(a["tracks"][0]["low_pitch"], 20)
+            s = midi_read.suggest_accompaniment(path)
+            self.assertNotIn("Bass", [t["name"] for t in s["tracks"]])
+            self.assertEqual(s["humanize"], 0.02)
+        finally:
+            _os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()

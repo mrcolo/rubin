@@ -136,6 +136,8 @@ def analyze(path):
             "notes": len(notes),
             "low": pitch_name(min(pitches)),
             "high": pitch_name(max(pitches)),
+            "low_pitch": min(pitches),
+            "high_pitch": max(pitches),
             "mean_velocity": round(sum(vels) / len(vels)),
             "length_beats": round(span, 2),
             "notes_per_beat": round(len(notes) / span, 2) if span else 0,
@@ -417,10 +419,9 @@ def suggest_accompaniment(path):
     # which registers does the source occupy?
     low = mid = high = False
     for t in a["tracks"]:
-        lo = 12 * (int(t["low"][-1]) + 2)  # crude octave read
-        hi = 12 * (int(t["high"][-1]) + 2)
+        lo, hi = t["low_pitch"], t["high_pitch"]
         low = low or lo < 48
-        mid = mid or (48 <= lo <= 71 or 48 <= hi <= 71)
+        mid = mid or (lo <= 71 and hi >= 48)
         high = high or hi >= 72
     tracks = []
     if not low:
@@ -438,7 +439,7 @@ def suggest_accompaniment(path):
     tracks.append({"name": "Drums", "channel": 9,
                    "drums": {"pattern": "half_time",
                              "bars": max(8, len(chords) * bars_per_chord)}})
-    out = {"tempo": tempo, "tracks": tracks}
+    out = {"tempo": tempo, "tracks": tracks, "humanize": 0.02}
     if key:
         out["key"] = key
     swings = [t["swing_guess"] for t in a["tracks"]
