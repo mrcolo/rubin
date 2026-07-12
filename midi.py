@@ -154,3 +154,40 @@ def write_smf(path, tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=
     with open(path, "wb") as f:
         f.write(data)
     return len(data)
+
+
+_PC = {"C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5,
+       "F#": 6, "Gb": 6, "G": 7, "G#": 8, "Ab": 8, "A": 9, "A#": 10,
+       "Bb": 10, "B": 11}
+_QUALITIES = {"": (0, 4, 7), "m": (0, 3, 7), "7": (0, 4, 7, 10),
+              "maj7": (0, 4, 7, 11), "m7": (0, 3, 7, 10), "dim": (0, 3, 6),
+              "sus4": (0, 5, 7), "add9": (0, 4, 7, 14), "m9": (0, 3, 7, 14)}
+
+
+def chord_pitches(name, octave=3):
+    """'Am' -> [69, 72, 76] (A3 C4 E4). Root placed in octave `octave`."""
+    name = name.strip()
+    root = name[:2] if len(name) > 1 and name[1] in "#b" else name[:1]
+    root = root[0].upper() + root[1:]
+    quality = name[len(root):]
+    if root not in _PC:
+        raise ValueError("unknown chord root: %r" % name)
+    if quality not in _QUALITIES:
+        raise ValueError("unknown chord quality %r (know: %s)"
+                         % (quality, sorted(_QUALITIES)))
+    base = 12 * (octave + 2) + _PC[root]
+    return [base + iv for iv in _QUALITIES[quality]]
+
+
+def progression_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=3,
+                      vel=68, gap=0.25):
+    """Sustained chord notes for a progression — one voicing per chord,
+    gently varied velocities, small gap before each change."""
+    notes = []
+    span = bars_per_chord * beats_per_bar
+    for ci, name in enumerate(chords):
+        start = ci * span
+        for vi, pitch in enumerate(chord_pitches(name, octave)):
+            notes.append((start, span - gap, pitch,
+                          max(1, min(127, vel + ((ci * 5 + vi * 3) % 7) - 3))))
+    return notes

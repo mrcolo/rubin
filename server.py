@@ -68,7 +68,21 @@ TRACK_SCHEMA = {
         "volume": {"type": "integer", "description": "Optional initial CC7 volume 0-127"},
         "pan": {"type": "integer", "description": "Optional initial CC10 pan 0-127 (64 = center)"},
         "swing": {"type": "number", "description": "Optional per-track swing override (50-75)"},
-        "notes": {"type": "array", "items": NOTE_SCHEMA},
+        "progression": {
+            "type": "object",
+            "description": (
+                "Shorthand: sustained chord voicings generated from names "
+                "(e.g. Am, F, Cmaj7, E7, Dm9, Gsus4) — merged with any notes"
+            ),
+            "properties": {
+                "chords": {"type": "array", "items": {"type": "string"}},
+                "bars_per_chord": {"type": "integer", "description": "Default 2"},
+                "octave": {"type": "integer", "description": "Root octave, default 3"},
+                "vel": {"type": "integer", "description": "Base velocity, default 68"},
+            },
+            "required": ["chords"],
+        },
+        "notes": {"type": "array", "items": NOTE_SCHEMA, "description": "May be empty when progression is given"},
         "cc": {"type": "array", "items": CC_SCHEMA, "description": "Optional controller automation"},
         "bends": {"type": "array", "items": BEND_SCHEMA, "description": "Optional pitch bends"},
     },
@@ -363,6 +377,13 @@ def _do_compose(args):
     path = os.path.expanduser(path)
     tracks = []
     for t in args["tracks"]:
+        prog = t.get("progression")
+        prog_notes = midilib.progression_notes(
+            prog["chords"],
+            bars_per_chord=prog.get("bars_per_chord", 2),
+            octave=prog.get("octave", 3),
+            vel=prog.get("vel", 68),
+        ) if prog else []
         tracks.append(
             {
                 "name": t.get("name"),
@@ -374,8 +395,8 @@ def _do_compose(args):
                 "notes": [
                     n if isinstance(n, (list, tuple))
                     else (n["start"], n["dur"], n["pitch"], n["vel"])
-                    for n in t["notes"]
-                ],
+                    for n in t.get("notes") or []
+                ] + prog_notes,
                 "cc": [
                     c if isinstance(c, (list, tuple))
                     else (c["beat"], c["controller"], c["value"])

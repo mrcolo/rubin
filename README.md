@@ -59,7 +59,10 @@ Note format: `{start, dur, pitch, vel}` — start/dur in beats, pitch 0–127
 `program`, `volume`, `pan`. Compositions accept `time_sig` (`[3, 4]`),
 `key` (`"Am"`, `"Eb"`, `"F#m"`), `tempo_changes` (`[{beat, bpm}]`), and
 `swing` (50 = straight, ~62 = MPC feel; `swing_unit` 0.5/0.25 for
-8th/16th swing; per-track override supported).
+8th/16th swing; per-track override supported). Tracks can declare a
+`progression` (`{chords: ["Am", "F", "Cmaj7", "E7"]}`) instead of raw
+notes — voicings are generated, and `analyze_midi` reads the same chord
+names back.
 
 ### Example: an Alchemy pad in three calls
 

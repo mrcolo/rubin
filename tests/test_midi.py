@@ -177,5 +177,30 @@ class TestSwing(unittest.TestCase):
         self.assertEqual(g, s)
 
 
+class TestProgression(unittest.TestCase):
+    def test_chord_pitches(self):
+        self.assertEqual(midi.chord_pitches("Am"), [69, 72, 76])
+        self.assertEqual(midi.chord_pitches("Bbmaj7"), [70, 74, 77, 81])
+        with self.assertRaises(ValueError):
+            midi.chord_pitches("Hm")
+        with self.assertRaises(ValueError):
+            midi.chord_pitches("Cweird")
+
+    def test_progression_roundtrip(self):
+        import os as _os, sys as _sys, tempfile
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi_read, server
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            server._do_compose({"tempo": 90, "path": path, "tracks": [
+                {"channel": 1, "progression": {"chords": ["Am", "F", "Cmaj7", "E7"]}}]})
+            _p, _t, tracks = midi_read.parse_smf(open(path, "rb").read())
+            self.assertEqual(midi_read.guess_chords(tracks),
+                             ["Am", "Am", "F", "F", "Cmaj7", "Cmaj7", "E7", "E7"])
+        finally:
+            _os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()
