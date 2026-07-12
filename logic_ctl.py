@@ -160,6 +160,199 @@ def open_midi_as_project(path):
     subprocess.run(["open", "-a", app_name(), path], check=True)
 
 
+def select_track(index):
+    """Select track `index` (1-based) via arrow-key navigation.
+
+    Logic has no direct 'select track N' command, so walk to the top with
+    Up presses, then step Down. Bounded, deterministic, works on any project
+    with a reasonable track count.
+    """
+    if not 1 <= int(index) <= 60:
+        raise LogicError("track index out of range (1-60)")
+    ups = "\n".join(["        key code 126\n        delay 0.05"] * 60)
+    downs = "\n".join(["        key code 125\n        delay 0.05"] * (int(index) - 1))
+    script = '''
+tell application "%s" to activate
+delay 0.4
+tell application "System Events"
+    tell process "%s"
+        set frontmost to true
+%s
+%s
+    end tell
+end tell
+''' % (app_name(), process_name(), ups, downs)
+    osa(script, timeout=90)
+
+
+def _library_checkbox_value():
+    """Read the Library toolbar toggle (1 = open). Returns int or None.
+
+    The toggle lives one group below the window in the AX tree.
+    """
+    script = '''
+tell application "System Events"
+    tell process "%s"
+        try
+            return value of (checkboxes of UI elements of window 1 whose name is "Library") as string
+        end try
+        return ""
+    end tell
+end tell
+''' % process_name()
+    out = osa(script)
+    return int(out) if out.isdigit() else None
+
+
+def load_patch(query):
+    """Load a Library patch onto the selected track by search.
+
+    Opens the Library if needed, fills its search field (identified by the
+    'Search Sounds' placeholder), and loads the top result. This is the only
+    route to Alchemy/synth patches — Logic exposes no API for patch loading.
+    """
+    if not logic_running():
+        raise LogicError("Logic Pro is not running")
+    was_open = _library_checkbox_value()
+    open_lib = "" if was_open == 1 else 'keystroke "y"\n        delay 1.2'
+    script = '''
+tell application "%(app)s" to activate
+delay 0.5
+tell application "System Events"
+    tell process "%(proc)s"
+        set frontmost to true
+        %(open_lib)s
+        -- find the Library search field by its placeholder
+        set sf to missing value
+        with timeout of 60 seconds
+            set allEls to entire contents of window 1
+            repeat with el in allEls
+                try
+                    if role of el is "AXTextField" then
+                        if (value of attribute "AXPlaceholderValue" of el) is "Search Sounds" then
+                            set sf to el
+                            exit repeat
+                        end if
+                    end if
+                end try
+            end repeat
+        end timeout
+        if sf is missing value then error "Library search field not found"
+        set sfPos to position of sf
+        set sfY to item 2 of sfPos
+        set focused of sf to true
+        delay 0.3
+        set value of sf to "%(query)s"
+        delay 0.2
+        key code 36 -- run search
+        delay 1.5
+        -- collect result rows; prefer an exact name match, else take the first
+        set theRow to missing value
+        set firstRow to missing value
+        with timeout of 60 seconds
+            set allEls2 to entire contents of window 1
+            repeat with el in allEls2
+                try
+                    if role of el is "AXRow" then
+                        set p to position of el
+                        if (item 1 of p) < 300 and (item 2 of p) > (sfY + 10) then
+                            if firstRow is missing value then set firstRow to el
+                            try
+                                set rn to value of static text 1 of UI element 1 of el
+                                ignoring case
+                                    if rn is "%(query)s" then
+                                        set theRow to el
+                                        exit repeat
+                                    end if
+                                end ignoring
+                            end try
+                        end if
+                    end if
+                end try
+            end repeat
+        end timeout
+        if theRow is missing value then set theRow to firstRow
+        if theRow is missing value then error "no Library results for '%(query)s'"
+        set patchName to ""
+        try
+            set patchName to value of static text 1 of UI element 1 of theRow
+        end try
+        set selected of theRow to true
+        delay 1.2
+        key code 53 -- escape: release search focus
+        return patchName
+    end tell
+end tell
+''' % {
+        "app": app_name(),
+        "proc": process_name(),
+        "open_lib": open_lib,
+        "query": query.replace("\\", "\\\\").replace('"', '\\"'),
+    }
+    loaded = osa(script, timeout=180)
+    if was_open == 0:
+        # restore the Library to closed
+        transport_script = '''
+tell application "System Events" to tell process "%s"
+    keystroke "y"
+end tell
+''' % process_name()
+        try:
+            osa(transport_script)
+        except LogicError:
+            pass
+    return loaded
+
+
+def list_tracks():
+    """Read tracks from the 18px-tall header text fields.
+
+    Two columns exist per track row: the header's patch/instrument label and
+    the track name. Returns [{"name": ..., "patch": ...}] top to bottom;
+    the visible text lives in the AX `description` attribute.
+    """
+    script = '''
+with timeout of 60 seconds
+    tell application "System Events"
+        tell process "%s"
+            set out to ""
+            set allEls to entire contents of window 1
+            repeat with el in allEls
+                try
+                    if role of el is "AXTextField" then
+                        set s to size of el
+                        if (item 2 of s is 18) and (item 1 of s > 100) then
+                            set p to position of el
+                            set out to out & (item 1 of p) & "|" & (item 2 of p) & "|" & (description of el) & linefeed
+                        end if
+                    end if
+                end try
+            end repeat
+            return out
+        end tell
+    end tell
+end timeout
+''' % process_name()
+    out = osa(script, timeout=90)
+    fields = []
+    for line in out.splitlines():
+        parts = line.split("|", 2)
+        if len(parts) == 3:
+            fields.append((int(parts[0]), int(parts[1]), parts[2]))
+    if not fields:
+        return []
+    xs = sorted({x for x, _, _ in fields})
+    left_col = [f for f in fields if f[0] == xs[0]]
+    right_col = [f for f in fields if f[0] == xs[-1]] if len(xs) > 1 else []
+    left_col.sort(key=lambda f: f[1])
+    right_col.sort(key=lambda f: f[1])
+    tracks = []
+    for i, (_, _, patch) in enumerate(left_col):
+        name = right_col[i][2] if i < len(right_col) else patch
+        tracks.append({"name": name, "patch": patch})
+    return tracks
+
+
 _TRANSPORT_KEYS = {
     "play": "key code 49",           # space toggles play/stop
     "stop": "key code 49",

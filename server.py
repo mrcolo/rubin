@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""logic-composer: a minimal, dependency-free MCP server for Logic Pro.
+"""rubin: a minimal, dependency-free MCP server for Logic Pro.
 
 Philosophy: don't fight Logic's UI. Compose real .mid files (fully reliable),
 then use one small scripted action to import them into the open project.
@@ -17,6 +17,7 @@ import traceback
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import midi as midilib  # noqa: E402
 import logic_ctl  # noqa: E402
+import patches  # noqa: E402
 
 DEFAULT_OUT_DIR = os.path.expanduser("~/Desktop")
 
@@ -31,15 +32,50 @@ NOTE_SCHEMA = {
     "required": ["start", "dur", "pitch", "vel"],
 }
 
+CC_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "beat": {"type": "number", "description": "Position in beats"},
+        "controller": {"type": "integer", "description": "CC number 0-127 (1 mod, 64 sustain, 11 expression)"},
+        "value": {"type": "integer", "description": "0-127"},
+    },
+    "required": ["beat", "controller", "value"],
+}
+
+BEND_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "beat": {"type": "number", "description": "Position in beats"},
+        "value": {"type": "integer", "description": "-8192 to 8191 (0 = center)"},
+    },
+    "required": ["beat", "value"],
+}
+
 TRACK_SCHEMA = {
     "type": "object",
     "properties": {
         "name": {"type": "string", "description": "Track name shown in Logic"},
         "channel": {"type": "integer", "description": "MIDI channel 0-15. Use 9 for drums (GM drum map)"},
-        "program": {"type": "integer", "description": "Optional GM program 0-127 (hint for initial patch)"},
+        "program": {
+            "type": "integer",
+            "description": (
+                "Optional GM program 0-127. Logic maps this to a software instrument "
+                "on import, so it selects the initial sound"
+            ),
+        },
+        "volume": {"type": "integer", "description": "Optional initial CC7 volume 0-127"},
+        "pan": {"type": "integer", "description": "Optional initial CC10 pan 0-127 (64 = center)"},
         "notes": {"type": "array", "items": NOTE_SCHEMA},
+        "cc": {"type": "array", "items": CC_SCHEMA, "description": "Optional controller automation"},
+        "bends": {"type": "array", "items": BEND_SCHEMA, "description": "Optional pitch bends"},
     },
     "required": ["channel", "notes"],
+}
+
+TIME_SIG_SCHEMA = {
+    "type": "array",
+    "items": {"type": "integer"},
+    "description": "Optional [numerator, denominator], default [4, 4]",
 }
 
 TOOLS = [
@@ -55,6 +91,7 @@ TOOLS = [
             "properties": {
                 "tempo": {"type": "number", "description": "BPM"},
                 "tracks": {"type": "array", "items": TRACK_SCHEMA},
+                "time_sig": TIME_SIG_SCHEMA,
                 "path": {"type": "string", "description": "Output .mid path (default ~/Desktop/<name>.mid)"},
                 "name": {"type": "string", "description": "Base filename if path not given"},
             },
@@ -82,6 +119,7 @@ TOOLS = [
             "properties": {
                 "tempo": {"type": "number"},
                 "tracks": {"type": "array", "items": TRACK_SCHEMA},
+                "time_sig": TIME_SIG_SCHEMA,
                 "name": {"type": "string", "description": "Base filename (default 'composition')"},
             },
             "required": ["tempo", "tracks"],
@@ -109,6 +147,59 @@ TOOLS = [
             },
             "required": ["command"],
         },
+    },
+    {
+        "name": "select_track",
+        "description": (
+            "Select track N (1-based) in the open project via keyboard navigation. "
+            "Use before load_patch to target a specific track."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"index": {"type": "integer", "description": "Track number, 1-based"}},
+            "required": ["index"],
+        },
+    },
+    {
+        "name": "find_patches",
+        "description": (
+            "Search Logic's factory patch index on disk. Returns exact patch names "
+            "loadable with load_patch. Filter by name substring, category path "
+            "(e.g. 'Synthesizer/Pad', 'Bass', 'Drum Kit'), and/or synth engine "
+            "plugin (e.g. 'Alchemy', 'Retro Synth', 'ES2', 'Sculpture')."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Name substring"},
+                "category": {"type": "string", "description": "Category path substring"},
+                "plugin": {"type": "string", "description": "Synth engine name, e.g. 'Alchemy'"},
+                "limit": {"type": "integer", "description": "Max results (default 25)"},
+            },
+        },
+    },
+    {
+        "name": "load_patch",
+        "description": (
+            "Load a Logic Library patch onto the SELECTED track by name — the route "
+            "to Alchemy and every other Logic synth/instrument sound. Prefers an "
+            "exact name match, else loads the top search result, and returns the "
+            "name of the patch actually loaded. Use find_patches to discover exact "
+            "names, and list_tracks to verify."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"query": {"type": "string", "description": "Patch name (exact preferred)"}},
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "list_tracks",
+        "description": (
+            "Read the open project's tracks from the UI: returns "
+            "[{name, patch}] top to bottom. Use to verify edits."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "answer_dialog",
@@ -143,14 +234,26 @@ def _do_compose(args):
                 "name": t.get("name"),
                 "channel": t["channel"],
                 "program": t.get("program"),
+                "volume": t.get("volume"),
+                "pan": t.get("pan"),
                 "notes": [
                     n if isinstance(n, (list, tuple))
                     else (n["start"], n["dur"], n["pitch"], n["vel"])
                     for n in t["notes"]
                 ],
+                "cc": [
+                    c if isinstance(c, (list, tuple))
+                    else (c["beat"], c["controller"], c["value"])
+                    for c in t.get("cc") or []
+                ],
+                "bends": [
+                    b if isinstance(b, (list, tuple)) else (b["beat"], b["value"])
+                    for b in t.get("bends") or []
+                ],
             }
         )
-    size = midilib.write_smf(path, args["tempo"], tracks)
+    time_sig = tuple(args.get("time_sig") or (4, 4))
+    size = midilib.write_smf(path, args["tempo"], tracks, time_sig)
     return path, size
 
 
@@ -198,6 +301,26 @@ def handle_tool(name, args):
         logic_ctl.transport(args["command"])
         return "Sent %s" % args["command"]
 
+    if name == "select_track":
+        logic_ctl.select_track(args["index"])
+        return "Selected track %d" % args["index"]
+
+    if name == "find_patches":
+        hits = patches.find_patches(
+            query=args.get("query"),
+            plugin=args.get("plugin"),
+            category=args.get("category"),
+            limit=args.get("limit", 25),
+        )
+        return json.dumps(hits)
+
+    if name == "load_patch":
+        loaded = logic_ctl.load_patch(args["query"])
+        return "Loaded patch '%s' on the selected track" % loaded
+
+    if name == "list_tracks":
+        return json.dumps(logic_ctl.list_tracks())
+
     if name == "answer_dialog":
         prefer = tuple(args.get("prefer") or ("Import Tempo", "Import", "Yes", "OK"))
         clicked = logic_ctl.answer_dialog(prefer)
@@ -243,7 +366,7 @@ def serve():
                             "protocolVersion", "2024-11-05"
                         ),
                         "capabilities": {"tools": {}},
-                        "serverInfo": {"name": "logic-composer", "version": "1.0.0"},
+                        "serverInfo": {"name": "rubin", "version": "1.1.0"},
                     },
                 )
             elif method == "notifications/initialized":

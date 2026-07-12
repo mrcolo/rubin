@@ -29,7 +29,10 @@ def _track_chunk(events):
 
 
 def build_smf(tempo_bpm, tracks, time_sig=(4, 4)):
-    """tracks: [{name, channel, program?, notes: [(start_beats, dur_beats, pitch, vel), ...]}]
+    """tracks: [{name, channel, program?, volume?, pan?,
+                 notes: [(start_beats, dur_beats, pitch, vel), ...],
+                 cc: [(beat, controller, value), ...],
+                 bends: [(beat, value), ...]}]  # bend value -8192..8191
 
     Returns SMF format-1 bytes. Channel 9 is the GM drum channel.
     """
@@ -52,6 +55,10 @@ def build_smf(tempo_bpm, tracks, time_sig=(4, 4)):
             ev.append((0, 0, b"\xff\x03" + _vlq(len(nb)) + nb))
         if t.get("program") is not None:
             ev.append((0, 0, bytes([0xC0 | ch, int(t["program"]) & 0x7F])))
+        if t.get("volume") is not None:
+            ev.append((0, 0, bytes([0xB0 | ch, 7, max(0, min(127, int(t["volume"])))])))
+        if t.get("pan") is not None:
+            ev.append((0, 0, bytes([0xB0 | ch, 10, max(0, min(127, int(t["pan"])))])))
         for note in t["notes"]:
             start, dur, pitch, vel = note
             on = round(float(start) * PPQ)
@@ -63,6 +70,14 @@ def build_smf(tempo_bpm, tracks, time_sig=(4, 4)):
             # note-offs (prio 1) sort before note-ons (prio 2) at the same tick
             ev.append((on, 2, bytes([0x90 | ch, pitch, vel])))
             ev.append((off, 1, bytes([0x80 | ch, pitch, 0])))
+        for beat, controller, value in t.get("cc") or []:
+            tick = round(float(beat) * PPQ)
+            data = bytes([0xB0 | ch, int(controller) & 0x7F, max(0, min(127, int(value)))])
+            ev.append((tick, 0, data))
+        for beat, value in t.get("bends") or []:
+            tick = round(float(beat) * PPQ)
+            raw = max(0, min(16383, int(value) + 8192))
+            ev.append((tick, 0, bytes([0xE0 | ch, raw & 0x7F, (raw >> 7) & 0x7F])))
         chunks.append(_track_chunk(ev))
 
     header = (
