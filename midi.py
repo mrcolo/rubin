@@ -243,10 +243,12 @@ def progression_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=None,
                 notes.append((b + beats_per_bar - 0.5, 0.5,
                               root + (12 if last else 0), hv(ci, bar + 2, vel - 16)))
         else:  # arp
-            cycle = [0, 1, 2, len(pitches) - 1, 2, 1]
+            # true up-down traversal: [0,1,2,1] for triads, [0,1,2,3,2,1]
+            # for 7ths — no stuttered repeats at the turnaround
+            cycle = list(range(len(pitches))) + list(range(len(pitches) - 2, 0, -1))
             steps = int(span / 0.5)
             for i in range(steps):
-                pitch = pitches[cycle[i % len(cycle)] % len(pitches)]
+                pitch = pitches[cycle[i % len(cycle)]]
                 notes.append((start + i * 0.5, 0.45, pitch,
                               hv(ci, i, vel + (6 if i % 4 == 0 else 0))))
     return notes

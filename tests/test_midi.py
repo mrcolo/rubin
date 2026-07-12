@@ -187,6 +187,13 @@ class TestProgressionStyles(unittest.TestCase):
         for (s1, e1), (s2, _e2) in zip(spans, spans[1:]):
             self.assertLessEqual(e1, s2 + 0.01)
 
+    def test_arp_never_stutters(self):
+        for chord in ("Am", "Cmaj7", "E7", "Fsus4"):
+            pitches = [n[2] for n in midi.progression_notes(
+                [chord], bars_per_chord=2, style="arp")]
+            for a, b in zip(pitches, pitches[1:]):
+                self.assertNotEqual(a, b, "repeat in %s arp" % chord)
+
     def test_arp_is_eighths(self):
         notes = midi.progression_notes(["Am"], bars_per_chord=2, style="arp")
         self.assertEqual(len(notes), 16)
