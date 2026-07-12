@@ -210,7 +210,9 @@ def density_curve(tracks, beats_per_bar=4, window_bars=4):
     if not all_notes:
         return []
     window = beats_per_bar * window_bars
-    end = max(n[0] + n[1] for n, _ in all_notes)
+    # size by last onset, not last ring-out: the curve counts note starts,
+    # so a sustained tail must not fabricate an empty trailing window
+    end = max(n[0] for n, _ in all_notes) + 1e-9
     curve = []
     w = 0
     while w * window < end:

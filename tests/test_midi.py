@@ -243,5 +243,45 @@ class TestProgression(unittest.TestCase):
             _os.unlink(path)
 
 
+class TestDrumPattern(unittest.TestCase):
+    def test_all_patterns_generate(self):
+        for p in ("half_time", "four_on_floor", "boom_bap", "trap"):
+            notes = midi.drum_pattern(p, bars=8)
+            self.assertGreater(len(notes), 50, p)
+            self.assertTrue(all(0 <= n[2] <= 127 for n in notes))
+
+    def test_four_on_floor_kick_every_beat(self):
+        notes = midi.drum_pattern("four_on_floor", bars=2, fills=False)
+        kicks = sorted(n[0] for n in notes if n[2] == midi.KICK)
+        self.assertEqual(kicks, [float(i) for i in range(8)])
+
+    def test_unknown_pattern(self):
+        with self.assertRaises(ValueError):
+            midi.drum_pattern("jungle")
+
+    def test_full_band_describes_clean(self):
+        import os as _os, sys as _sys, tempfile
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi_read, server
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            server._do_compose({"tempo": 85, "path": path, "key": "Am", "tracks": [
+                {"name": "Drums", "channel": 9, "drums": {"pattern": "half_time"}},
+                {"name": "Pad", "channel": 1,
+                 "progression": {"chords": ["Am", "F", "C", "E"]}},
+                {"name": "Bass", "channel": 0,
+                 "progression": {"chords": ["Am", "F", "C", "E"], "style": "bass"}},
+            ]})
+            text = midi_read.describe(path)
+            self.assertNotIn("WARNING", text)
+            out = midi_read.analyze(path)
+            for w in out.get("density_curve", []):
+                self.assertGreater(w["notes_per_beat"], 0,
+                                   "phantom empty window at bar %d" % w["bar"])
+        finally:
+            _os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()

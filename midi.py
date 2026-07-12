@@ -222,3 +222,79 @@ def progression_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=None,
                 notes.append((start + i * 0.5, 0.45, pitch,
                               hv(ci, i, vel + (6 if i % 4 == 0 else 0))))
     return notes
+
+
+KICK, SNARE, CLAP, CHAT, OHAT, CRASH = 36, 38, 39, 42, 46, 49
+
+
+def drum_pattern(pattern, bars=8, fills=True):
+    """Drum notes (for channel 9) in a named style:
+
+    - "half_time": dark R&B/Weeknd — snare on 3, sparse kick, 8th hats
+    - "four_on_floor": house — kick every beat, open-hat offbeats, clap 2+4
+    - "boom_bap": hip-hop — kick 1 and the and-of-2, snare 2+4
+    - "trap": half-time with 16th hats and roll ornaments
+
+    Ghost notes, alternating-bar variation, and velocity humanization are
+    built in; `fills` adds a snare roll into every 4th bar.
+    """
+    if pattern not in ("half_time", "four_on_floor", "boom_bap", "trap"):
+        raise ValueError("unknown drum pattern %r" % pattern)
+    notes = []
+
+    def hv(bar, i, base):
+        return max(1, min(127, base + ((bar * 13 + i * 7) % 9) - 4))
+
+    for bar in range(bars):
+        t = bar * 4.0
+        if pattern == "half_time":
+            notes.append((t, 0.4, KICK, hv(bar, 0, 112)))
+            notes.append((t + 1.5, 0.4, KICK, hv(bar, 1, 103)))
+            if bar % 2 == 1:
+                notes.append((t + 3.25, 0.4, KICK, hv(bar, 2, 97)))
+            notes.append((t + 2, 0.4, SNARE, hv(bar, 3, 106)))
+            notes.append((t + 2, 0.4, CLAP, hv(bar, 4, 92)))
+            if bar % 4 == 1:
+                notes.append((t + 3.75, 0.2, SNARE, 34))
+            openh = bar % 4 == 3
+            for i in range(8):
+                pos = i * 0.5
+                if openh and pos == 3.5:
+                    continue
+                notes.append((t + pos, 0.2, CHAT, hv(bar, i, 84 if i % 2 == 0 else 52)))
+            if openh:
+                notes.append((t + 3.5, 0.6, OHAT, 74))
+        elif pattern == "four_on_floor":
+            for beat in range(4):
+                notes.append((t + beat, 0.4, KICK, hv(bar, beat, 114)))
+            notes.append((t + 1, 0.4, CLAP, hv(bar, 4, 96)))
+            notes.append((t + 3, 0.4, CLAP, hv(bar, 5, 96)))
+            for i in range(4):
+                notes.append((t + i + 0.5, 0.4, OHAT, hv(bar, i, 78)))
+            for i in range(8):
+                notes.append((t + i * 0.5, 0.15, CHAT, hv(bar, i, 46)))
+        elif pattern == "boom_bap":
+            notes.append((t, 0.4, KICK, hv(bar, 0, 112)))
+            notes.append((t + 2.5, 0.4, KICK, hv(bar, 1, 104)))
+            if bar % 2 == 1:
+                notes.append((t + 1.75, 0.3, KICK, hv(bar, 2, 88)))
+            notes.append((t + 1, 0.4, SNARE, hv(bar, 3, 108)))
+            notes.append((t + 3, 0.4, SNARE, hv(bar, 4, 106)))
+            for i in range(8):
+                notes.append((t + i * 0.5, 0.2, CHAT, hv(bar, i, 80 if i % 2 == 0 else 54)))
+        else:  # trap
+            notes.append((t, 0.4, KICK, hv(bar, 0, 114)))
+            notes.append((t + (0.75 if bar % 2 == 0 else 1.5), 0.4, KICK, hv(bar, 1, 102)))
+            notes.append((t + 2.75, 0.4, KICK, hv(bar, 2, 98)))
+            notes.append((t + 2, 0.4, SNARE, hv(bar, 3, 110)))
+            for i in range(16):
+                pos = i * 0.25
+                base = 72 if i % 4 == 0 else 48
+                notes.append((t + pos, 0.1, CHAT, hv(bar, i, base)))
+            if bar % 2 == 1:  # 32nd roll ornament into beat 4
+                for j in range(4):
+                    notes.append((t + 3.5 + j * 0.125, 0.08, CHAT, 60 + j * 8))
+        if fills and bar % 4 == 3:
+            for j, pos in enumerate((3.0, 3.25, 3.5, 3.625, 3.75, 3.875)):
+                notes.append((t + pos, 0.1, SNARE, 58 + j * 10))
+    return notes

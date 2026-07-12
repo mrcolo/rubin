@@ -68,6 +68,21 @@ TRACK_SCHEMA = {
         "volume": {"type": "integer", "description": "Optional initial CC7 volume 0-127"},
         "pan": {"type": "integer", "description": "Optional initial CC10 pan 0-127 (64 = center)"},
         "swing": {"type": "number", "description": "Optional per-track swing override (50-75)"},
+        "drums": {
+            "type": "object",
+            "description": (
+                "Shorthand: a full drum groove on this track (set channel 9). "
+                "Patterns: half_time (dark R&B), four_on_floor (house), "
+                "boom_bap (hip-hop), trap"
+            ),
+            "properties": {
+                "pattern": {"type": "string",
+                            "enum": ["half_time", "four_on_floor", "boom_bap", "trap"]},
+                "bars": {"type": "integer", "description": "Default 8"},
+                "fills": {"type": "boolean", "description": "Snare-roll fills every 4th bar (default true)"},
+            },
+            "required": ["pattern"],
+        },
         "progression": {
             "type": "object",
             "description": (
@@ -379,6 +394,12 @@ def _do_compose(args):
     path = os.path.expanduser(path)
     tracks = []
     for t in args["tracks"]:
+        drums = t.get("drums")
+        drum_notes = midilib.drum_pattern(
+            drums["pattern"],
+            bars=drums.get("bars", 8),
+            fills=drums.get("fills", True),
+        ) if drums else []
         prog = t.get("progression")
         prog_notes = midilib.progression_notes(
             prog["chords"],
@@ -399,7 +420,7 @@ def _do_compose(args):
                     n if isinstance(n, (list, tuple))
                     else (n["start"], n["dur"], n["pitch"], n["vel"])
                     for n in t.get("notes") or []
-                ] + prog_notes,
+                ] + prog_notes + drum_notes,
                 "cc": [
                     c if isinstance(c, (list, tuple))
                     else (c["beat"], c["controller"], c["value"])
