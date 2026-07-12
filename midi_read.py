@@ -103,6 +103,9 @@ def analyze(path):
     if key:
         out["key_guess"] = key
         out["key_confidence"] = conf
+    if all_notes and max(n[0] + n[1] for n in all_notes) > 32:
+        # only meaningful past ~8 bars; short clips are one window anyway
+        out["density_curve"] = density_curve(tracks)
     for t in tracks:
         notes = t["notes"]
         if not notes:
@@ -188,3 +191,25 @@ def guess_swing(notes):
     if spread > 0.04:  # not one cluster: mixed subdivisions, skip
         return None
     return round(med * 100)
+
+
+def density_curve(tracks, beats_per_bar=4, window_bars=4):
+    """Energy contour: per window of bars, total notes/beat and how many
+    tracks are active. Reveals arrangement structure (intro/verse/chorus)."""
+    all_notes = [(n, ti) for ti, t in enumerate(tracks) for n in t["notes"]]
+    if not all_notes:
+        return []
+    window = beats_per_bar * window_bars
+    end = max(n[0] + n[1] for n, _ in all_notes)
+    curve = []
+    w = 0
+    while w * window < end:
+        lo, hi = w * window, (w + 1) * window
+        in_win = [(n, ti) for n, ti in all_notes if lo <= n[0] < hi]
+        curve.append({
+            "bar": w * window_bars + 1,
+            "notes_per_beat": round(len(in_win) / window, 2),
+            "active_tracks": len({ti for _, ti in in_win}),
+        })
+        w += 1
+    return curve

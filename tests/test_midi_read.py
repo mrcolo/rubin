@@ -148,5 +148,33 @@ class TestGuessSwing(unittest.TestCase):
             _os.unlink(path)
 
 
+class TestDensityCurve(unittest.TestCase):
+    def test_contour_shape(self):
+        busy = {"notes": [(b + i * 0.25, 0.2, 60, 90)
+                          for b in range(0, 16) for i in range(4)]}
+        sparse = {"notes": [(b, 1, 48, 80) for b in range(16, 32, 4)]}
+        curve = midi_read.density_curve([busy, sparse])
+        self.assertEqual(curve[0]["bar"], 1)
+        self.assertGreater(curve[0]["notes_per_beat"], curve[1]["notes_per_beat"])
+
+    def test_in_analyze_for_long_files(self):
+        import tempfile, os as _os, sys as _sys, midi
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import demo_beat, server
+        spec = demo_beat.weeknd_beat()
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            spec["path"] = f.name
+        try:
+            server._do_compose(spec)
+            out = midi_read.analyze(spec["path"])
+            self.assertIn("density_curve", out)
+            self.assertGreaterEqual(len(out["density_curve"]), 2)
+        finally:
+            _os.unlink(spec["path"])
+
+    def test_empty(self):
+        self.assertEqual(midi_read.density_curve([]), [])
+
+
 if __name__ == "__main__":
     unittest.main()
