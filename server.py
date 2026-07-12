@@ -77,8 +77,10 @@ TRACK_SCHEMA = {
             "properties": {
                 "chords": {"type": "array", "items": {"type": "string"}},
                 "bars_per_chord": {"type": "integer", "description": "Default 2"},
-                "octave": {"type": "integer", "description": "Root octave, default 3"},
-                "vel": {"type": "integer", "description": "Base velocity, default 68"},
+                "style": {"type": "string", "enum": ["pad", "bass", "arp"],
+                          "description": "pad = sustained voicings (default), bass = root groove, arp = 8th cycle"},
+                "octave": {"type": "integer", "description": "Root octave (defaults per style)"},
+                "vel": {"type": "integer", "description": "Base velocity (defaults per style)"},
             },
             "required": ["chords"],
         },
@@ -381,8 +383,9 @@ def _do_compose(args):
         prog_notes = midilib.progression_notes(
             prog["chords"],
             bars_per_chord=prog.get("bars_per_chord", 2),
-            octave=prog.get("octave", 3),
-            vel=prog.get("vel", 68),
+            octave=prog.get("octave"),
+            vel=prog.get("vel"),
+            style=prog.get("style", "pad"),
         ) if prog else []
         tracks.append(
             {

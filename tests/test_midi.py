@@ -177,6 +177,47 @@ class TestSwing(unittest.TestCase):
         self.assertEqual(g, s)
 
 
+class TestProgressionStyles(unittest.TestCase):
+    def test_bass_low_and_mono(self):
+        notes = midi.progression_notes(["Am", "F"], style="bass")
+        pitches = [n[2] for n in notes]
+        self.assertLessEqual(max(pitches), 48)
+        # no two notes sound simultaneously
+        spans = sorted((n[0], n[0] + n[1]) for n in notes)
+        for (s1, e1), (s2, _e2) in zip(spans, spans[1:]):
+            self.assertLessEqual(e1, s2 + 0.01)
+
+    def test_arp_is_eighths(self):
+        notes = midi.progression_notes(["Am"], bars_per_chord=2, style="arp")
+        self.assertEqual(len(notes), 16)
+        starts = [n[0] for n in notes]
+        self.assertEqual(starts, [i * 0.5 for i in range(16)])
+
+    def test_bad_style(self):
+        with self.assertRaises(ValueError):
+            midi.progression_notes(["Am"], style="polka")
+
+    def test_trio_describes_clean(self):
+        import os as _os, sys as _sys, tempfile
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi_read, server
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            server._do_compose({"tempo": 85, "path": path, "key": "Am", "tracks": [
+                {"name": "Pad", "channel": 1, "progression": {"chords": ["Am", "F", "C", "E"]}},
+                {"name": "Bass", "channel": 0,
+                 "progression": {"chords": ["Am", "F", "C", "E"], "style": "bass"}},
+                {"name": "Arp", "channel": 2,
+                 "progression": {"chords": ["Am", "F", "C", "E"], "style": "arp"}},
+            ]})
+            text = midi_read.describe(path)
+            self.assertIn("progression Am-F-C-E", text)
+            self.assertNotIn("WARNING", text)
+        finally:
+            _os.unlink(path)
+
+
 class TestProgression(unittest.TestCase):
     def test_chord_pitches(self):
         self.assertEqual(midi.chord_pitches("Am"), [69, 72, 76])

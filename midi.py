@@ -179,15 +179,46 @@ def chord_pitches(name, octave=3):
     return [base + iv for iv in _QUALITIES[quality]]
 
 
-def progression_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=3,
-                      vel=68, gap=0.25):
-    """Sustained chord notes for a progression — one voicing per chord,
-    gently varied velocities, small gap before each change."""
+def progression_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=None,
+                      vel=None, gap=0.25, style="pad"):
+    """Notes for a chord progression in one of three styles:
+
+    - "pad": sustained voicings (default), one per chord
+    - "bass": monophonic root groove with octave pickups, low register
+    - "arp": 8th-note up-down cycle over the chord tones, an octave up
+
+    Velocities are gently varied so nothing reads as robotic.
+    """
+    if style not in ("pad", "bass", "arp"):
+        raise ValueError("unknown progression style %r" % style)
+    octave = octave if octave is not None else {"pad": 3, "bass": 0, "arp": 4}[style]
+    vel = vel if vel is not None else {"pad": 68, "bass": 98, "arp": 56}[style]
     notes = []
     span = bars_per_chord * beats_per_bar
+
+    def hv(ci, i, base):  # humanized velocity
+        return max(1, min(127, base + ((ci * 5 + i * 3) % 7) - 3))
+
     for ci, name in enumerate(chords):
         start = ci * span
-        for vi, pitch in enumerate(chord_pitches(name, octave)):
-            notes.append((start, span - gap, pitch,
-                          max(1, min(127, vel + ((ci * 5 + vi * 3) % 7) - 3))))
+        pitches = chord_pitches(name, octave)
+        if style == "pad":
+            for vi, pitch in enumerate(pitches):
+                notes.append((start, span - gap, pitch, hv(ci, vi, vel)))
+        elif style == "bass":
+            root = pitches[0]
+            for bar in range(bars_per_chord):
+                b = start + bar * beats_per_bar
+                last = bar == bars_per_chord - 1
+                notes.append((b, beats_per_bar - 1.25, root, hv(ci, bar, vel)))
+                notes.append((b + beats_per_bar - 1, 0.5, root, hv(ci, bar + 1, vel - 12)))
+                notes.append((b + beats_per_bar - 0.5, 0.5,
+                              root + (12 if last else 0), hv(ci, bar + 2, vel - 16)))
+        else:  # arp
+            cycle = [0, 1, 2, len(pitches) - 1, 2, 1]
+            steps = int(span / 0.5)
+            for i in range(steps):
+                pitch = pitches[cycle[i % len(cycle)] % len(pitches)]
+                notes.append((start + i * 0.5, 0.45, pitch,
+                              hv(ci, i, vel + (6 if i % 4 == 0 else 0))))
     return notes
