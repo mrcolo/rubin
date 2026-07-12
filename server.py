@@ -477,6 +477,18 @@ def _do_compose(args):
     return path, size
 
 
+def _compose_warnings(path):
+    """Arrangement warnings for a just-composed file, ready to append to a
+    tool result — problems surface at compose time, not on a later verify."""
+    try:
+        warns = midi_read.analyze(path).get("warnings", [])
+    except Exception:
+        return ""
+    if not warns:
+        return ""
+    return " Arrangement warnings: " + " | ".join(warns)
+
+
 def _do_import(path):
     logic_ctl.import_midi(path)
     time.sleep(1.0)
@@ -490,7 +502,8 @@ def _do_import(path):
 def handle_tool(name, args):
     if name == "compose_midi":
         path, size = _do_compose(args)
-        return "Wrote %d bytes to %s" % (size, path)
+        msg = "Wrote %d bytes to %s" % (size, path)
+        return msg + _compose_warnings(path)
 
     if name == "import_midi":
         path = os.path.expanduser(args["path"])
@@ -504,8 +517,9 @@ def handle_tool(name, args):
 
     if name == "compose_and_import":
         path, size = _do_compose(args)
+        warn = _compose_warnings(path)
         clicked, buttons = _do_import(path)
-        msg = "Composed %s (%d bytes) and sent import sequence." % (path, size)
+        msg = "Composed %s (%d bytes) and sent import sequence.%s" % (path, size, warn)
         if clicked:
             msg += " Dialog appeared (buttons: %s); clicked '%s'." % (buttons, clicked)
         return msg

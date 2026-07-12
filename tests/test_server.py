@@ -182,5 +182,39 @@ class TestDemoFlag(unittest.TestCase):
             os.unlink(path)
 
 
+class TestComposeWarnings(unittest.TestCase):
+    def test_flat_velocities_surface_in_result(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "flat.mid")
+            out = rpc([
+                {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                 "params": {"protocolVersion": "2025-06-18"}},
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                 "params": {"name": "compose_midi", "arguments": {
+                     "tempo": 90, "path": path,
+                     "tracks": [{"name": "Robo", "channel": 0, "notes":
+                         [{"start": i, "dur": 0.5, "pitch": 60 + i % 24, "vel": 100}
+                          for i in range(16)]}]}}},
+            ])
+            text = out[2]["result"]["content"][0]["text"]
+            self.assertIn("Arrangement warnings", text)
+            self.assertIn("flat velocities", text)
+
+    def test_clean_compose_has_no_warning_suffix(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "clean.mid")
+            out = rpc([
+                {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                 "params": {"protocolVersion": "2025-06-18"}},
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                 "params": {"name": "compose_midi", "arguments": {
+                     "tempo": 90, "path": path, "humanize": 0.02,
+                     "tracks": [{"name": "OK", "channel": 1, "progression":
+                         {"chords": ["Am", "F", "C", "E"]}}]}}},
+            ])
+            text = out[2]["result"]["content"][0]["text"]
+            self.assertNotIn("Arrangement warnings", text)
+
+
 if __name__ == "__main__":
     unittest.main()
