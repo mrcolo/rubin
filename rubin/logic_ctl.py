@@ -275,7 +275,10 @@ def select_track(index):
     if not fields:
         raise LogicError("no track headers visible")
     xs = sorted({x for x, _, _ in fields})
-    col = sorted((f for f in fields if f[0] == xs[0]), key=lambda f: f[1])
+    # prefer an on-screen column: negative-x fields can sit outside the
+    # window (observed live), and clicking there silently selects nothing
+    visible = [x for x in xs if x > 0] or xs
+    col = sorted((f for f in fields if f[0] == visible[0]), key=lambda f: f[1])
     if not 1 <= index <= len(col):
         raise LogicError("track index %d out of range (project has %d)" % (index, len(col)))
     x, y, _ = col[index - 1]

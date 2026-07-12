@@ -633,7 +633,23 @@ def handle_tool(name, args):
         return json.dumps(hits)
 
     if name == "load_patch":
+        try:
+            before = {(t["name"], t["patch"]) for t in logic_ctl.list_tracks()}
+        except Exception:
+            before = None
         loaded = logic_ctl.load_patch(args["query"])
+        if before is not None:
+            try:
+                after = {(t["name"], t["patch"]) for t in logic_ctl.list_tracks()}
+                if after == before:
+                    return (
+                        "Library row '%s' was clicked but NO track header changed — "
+                        "the patch did not apply. Likely causes: the intended track "
+                        "is not actually selected, or the patch needs Sound Library "
+                        "content that isn't installed. Verify selection in Logic and "
+                        "retry." % loaded)
+            except Exception:
+                pass
         return "Loaded patch '%s' on the selected track" % loaded
 
     if name == "list_tracks":
