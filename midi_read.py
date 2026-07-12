@@ -135,6 +135,9 @@ def analyze(path):
             tkey, tconf = guess_key(notes)
             entry["key_guess"] = tkey
             entry["key_confidence"] = tconf
+        sw = guess_swing(notes)
+        if sw is not None:
+            entry["swing_guess"] = sw
         out["tracks"].append(entry)
     return out
 
@@ -169,3 +172,19 @@ def guess_key(notes):
             if r > best[1]:
                 best = (NOTE_NAMES[root] + suffix, r)
     return best[0], round(best[1], 3)
+
+
+def guess_swing(notes):
+    """Estimate 8th-note swing from offbeat placement. Returns percent
+    (50 = straight, ~62 = MPC feel) or None when there's no consistent
+    offbeat cluster (e.g. straight-16th content or too few offbeats)."""
+    fracs = sorted(s % 1.0 for s, _d, _p, _v in notes if 0.4 <= (s % 1.0) <= 0.8)
+    if len(fracs) < 6:
+        return None
+    mid = len(fracs) // 2
+    med = fracs[mid] if len(fracs) % 2 else (fracs[mid - 1] + fracs[mid]) / 2
+    mean = sum(fracs) / len(fracs)
+    spread = (sum((f - mean) ** 2 for f in fracs) / len(fracs)) ** 0.5
+    if spread > 0.04:  # not one cluster: mixed subdivisions, skip
+        return None
+    return round(med * 100)

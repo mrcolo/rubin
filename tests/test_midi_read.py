@@ -118,5 +118,35 @@ class TestGuessKey(unittest.TestCase):
             _os.unlink(path)
 
 
+class TestGuessSwing(unittest.TestCase):
+    def test_straight_8ths(self):
+        notes = [(i * 0.5, 0.3, 60, 90) for i in range(16)]
+        self.assertEqual(midi_read.guess_swing(notes), 50)
+
+    def test_swung(self):
+        notes = [(i, 0.3, 60, 90) for i in range(8)]
+        notes += [(i + 0.62, 0.3, 60, 90) for i in range(8)]
+        self.assertEqual(midi_read.guess_swing(notes), 62)
+
+    def test_mixed_16ths_abstains(self):
+        notes = [(i * 0.25, 0.2, 60, 90) for i in range(32)]
+        self.assertIsNone(midi_read.guess_swing(notes))
+
+    def test_too_few_abstains(self):
+        self.assertIsNone(midi_read.guess_swing([(0.5, 0.3, 60, 90)]))
+
+    def test_writer_reader_roundtrip(self):
+        import tempfile, os as _os, midi
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            notes = [(i * 0.5, 0.3, 60 + i % 4, 90) for i in range(32)]
+            midi.write_smf(path, 80, [{"channel": 0, "notes": notes}], swing=62)
+            out = midi_read.analyze(path)
+            self.assertEqual(out["tracks"][0]["swing_guess"], 62)
+        finally:
+            _os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()

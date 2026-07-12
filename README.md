@@ -40,7 +40,7 @@ silently and read garbage state. rubin flips the approach:
 | `compose_and_import` | Both steps in one call |
 | `transcribe_audio` | Audio → MIDI via [basic-pitch](https://github.com/spotify/basic-pitch), content-hash cached |
 | `list_transcriptions` | Browse the transcription cache |
-| `analyze_midi` | Summarize any .mid: key guess, range, density, polyphony, tempo |
+| `analyze_midi` | Summarize any .mid: key + swing detection, range, density, polyphony, tempo |
 | `find_patches` | Search the on-disk factory patch index (name / category / engine) |
 | `find_channel_strips` | Discover factory FX-chain settings (.cst) — names for the Setting menu; not Library-loadable |
 | `select_track` | Select track N (1-based) |
