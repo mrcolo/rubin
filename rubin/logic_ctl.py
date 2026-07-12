@@ -132,20 +132,28 @@ def find_dialog_buttons():
     script = '''
 tell application "System Events"
     tell process "%s"
+        set target to missing value
         if exists sheet 1 of front window then
-            return name of buttons of sheet 1 of front window as string
+            set target to sheet 1 of front window
+        else
+            try
+                if subrole of front window is "AXDialog" then set target to front window
+            end try
         end if
-        try
-            if subrole of front window is "AXDialog" then
-                return name of buttons of front window as string
-            end if
-        end try
-        return ""
+        if target is missing value then return ""
+        set out to ""
+        repeat with b in buttons of target
+            try
+                set nm to name of b
+                if nm is not missing value and nm is not "" then set out to out & nm & linefeed
+            end try
+        end repeat
+        return out
     end tell
 end tell
 ''' % process_name()
     out = osa(script)
-    return [b for b in out.split(", ") if b] if out else []
+    return [b for b in out.splitlines() if b.strip()] if out else []
 
 
 def answer_dialog(preferred=("Import Tempo", "Import", "Yes", "OK")):
