@@ -363,5 +363,66 @@ class TestVoiceLeading(unittest.TestCase):
             _os.unlink(path)
 
 
+class TestMelody(unittest.TestCase):
+    PROGS = (["Am", "F", "C", "E"], ["C", "G", "Am", "F"], ["Dm", "Bb", "F", "A"])
+
+    def shape(self, chords, seed=0):
+        notes = midi.melody_notes(chords, seed=seed)
+        pitches = [n[2] for n in notes]
+        vels = [n[3] for n in notes]
+        starts = [n[0] for n in notes]
+        peak_i = pitches.index(max(pitches))
+        total = starts[-1] + notes[-1][1]
+        return notes, pitches, vels, 100 * starts[peak_i] / total, peak_i
+
+    def test_peak_placed_and_loudest(self):
+        for chords in self.PROGS:
+            for seed in range(4):
+                _n, _p, vels, pct, peak_i = self.shape(chords, seed)
+                self.assertTrue(60 <= pct <= 85, "peak at %d%%" % pct)
+                self.assertEqual(vels[peak_i], max(vels))
+
+    def test_monophonic(self):
+        for chords in self.PROGS:
+            notes = midi.melody_notes(chords)
+            spans = sorted((n[0], n[0] + n[1]) for n in notes)
+            for (s1, e1), (s2, _e2) in zip(spans, spans[1:]):
+                self.assertLessEqual(e1, s2 + 0.01)
+
+    def test_resolves_to_root(self):
+        notes = midi.melody_notes(["Am", "F", "C", "E"])
+        root_pc = midi.chord_pitches("Am")[0] % 12
+        self.assertEqual(notes[-1][2] % 12, root_pc)
+
+    def test_deterministic_but_seeded(self):
+        a = midi.melody_notes(["Am", "F"], seed=1)
+        self.assertEqual(a, midi.melody_notes(["Am", "F"], seed=1))
+        self.assertNotEqual(a, midi.melody_notes(["Am", "F"], seed=2))
+
+    def test_progression_style_melody(self):
+        notes = midi.progression_notes(["Am", "F", "C", "E"], style="melody")
+        self.assertGreater(len(notes), 16)
+
+    def test_band_with_melody_describes_clean(self):
+        import os as _os, sys as _sys, tempfile
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi_read, server
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            server._do_compose({"tempo": 85, "path": path, "key": "Am", "tracks": [
+                {"name": "Drums", "channel": 9, "drums": {"pattern": "half_time"}},
+                {"name": "Bass", "channel": 0,
+                 "progression": {"chords": ["Am", "F", "C", "E"], "style": "bass"}},
+                {"name": "Pad", "channel": 1,
+                 "progression": {"chords": ["Am", "F", "C", "E"], "octave": 2}},
+                {"name": "Lead", "channel": 3,
+                 "progression": {"chords": ["Am", "F", "C", "E"], "style": "melody"}},
+            ]})
+            self.assertNotIn("WARNING", midi_read.describe(path))
+        finally:
+            _os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()

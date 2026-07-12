@@ -212,10 +212,14 @@ def progression_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=None,
 
     Velocities are gently varied so nothing reads as robotic.
     """
-    if style not in ("pad", "bass", "arp"):
+    if style not in ("pad", "bass", "arp", "melody"):
         raise ValueError("unknown progression style %r" % style)
-    octave = octave if octave is not None else {"pad": 3, "bass": 0, "arp": 4}[style]
-    vel = vel if vel is not None else {"pad": 68, "bass": 98, "arp": 56}[style]
+    octave = octave if octave is not None else {"pad": 3, "bass": 0, "arp": 4,
+                                                "melody": 3}[style]
+    vel = vel if vel is not None else {"pad": 68, "bass": 98, "arp": 56,
+                                       "melody": 92}[style]
+    if style == "melody":
+        return melody_notes(chords, bars_per_chord, beats_per_bar, octave, vel)
     notes = []
     span = bars_per_chord * beats_per_bar
 
@@ -333,4 +337,76 @@ def drum_pattern(pattern, bars=8, fills=True):
         if fills and bar % 4 == 3:
             for j, pos in enumerate((3.0, 3.25, 3.5, 3.625, 3.75, 3.875)):
                 notes.append((t + pos, 0.1, SNARE, 58 + j * 10))
+    return notes
+
+
+def melody_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=3,
+                 vel=92, seed=0):
+    """A hook over a chord progression, following hook-writing craft:
+
+    - chord tones on strong beats, scale passing tones between
+    - starts off the beat (half-beat rest pulls the listener in)
+    - one clear peak (highest + loudest) ~3/4 through the phrase
+    - each 2-bar cell ends on a held note; the phrase resolves down
+    - deterministic; vary `seed` for a different but equally-shaped hook
+    """
+    span = bars_per_chord * beats_per_bar
+    # the "key" proxy: every pitch class used by the progression
+    scale = sorted({p % 12 for name in chords for p in chord_pitches(name, octave)})
+
+    def rnd(i):
+        return ((seed * 31 + i) * 7919) % 97 / 97.0  # [0, 1): safe to scale-index
+
+    def nearest_scale_step(pitch, direction):
+        p = pitch + direction
+        while p % 12 not in scale:
+            p += direction
+        return p
+
+    notes = []
+    n_cells = len(chords)
+    peak_cell = min(n_cells - 1, max(1, round(n_cells * 0.7)))
+    prev_pitch = None
+    for ci, name in enumerate(chords):
+        base = ci * span
+        tones = chord_pitches(name, octave)
+        if ci == peak_cell:
+            tones = [t + 12 for t in tones]  # lift the peak cell an octave
+            prev_pitch = None  # enter the peak with a free leap onto a chord tone
+        # rhythm: off-beat start, then a mix of halves and units, ending held
+        positions, t = [], 0.5 if ci % 2 == 0 else 0.0
+        while t < span - 2.0:
+            dur = (0.5, 1.0, 0.5, 1.5)[int(rnd(ci * 7 + len(positions)) * 4)]
+            positions.append((t, dur))
+            t += dur
+        positions.append((t, span - t - 0.25))  # the hold that ends the cell
+        for ni, (pos, dur) in enumerate(positions):
+            on_strong_beat = abs(pos - round(pos)) < 1e-6 and int(pos) % 2 == 0
+            if ci == peak_cell and ni == 0:
+                pitch = tones[-1]  # the peak: open the cell on its top tone
+            elif on_strong_beat or ni == len(positions) - 1 or prev_pitch is None:
+                pitch = tones[int(rnd(ci * 13 + ni) * len(tones))]
+            else:
+                direction = 1 if rnd(ci * 17 + ni) > 0.5 else -1
+                pitch = nearest_scale_step(prev_pitch, direction)
+            pitch = min(pitch, tones[-1])  # nothing tops the cell's ceiling
+            # leaps are free at cell boundaries (that's where hooks jump);
+            # inside a cell keep the line singable
+            if ni > 0 and prev_pitch is not None and abs(pitch - prev_pitch) > 9:
+                pitch = prev_pitch + (12 if pitch > prev_pitch else -12) // 2
+                while pitch % 12 not in scale:
+                    pitch -= 1
+            is_last = ni == len(positions) - 1
+            v = vel + (6 if pos % 2 == 0 else 0) + (4 if is_last else 0) \
+                + int(rnd(ci * 19 + ni) * 7) - 3
+            if ci == peak_cell:
+                v += 6
+                if ni == 0:
+                    v = vel + 20  # the peak is unambiguously the loudest
+            notes.append((base + pos, dur - 0.05, pitch, max(1, min(127, v))))
+            prev_pitch = pitch
+    # resolve: force the final note onto the first chord's root
+    last = notes[-1]
+    root = chord_pitches(chords[0], octave)[0]
+    notes[-1] = (last[0], last[1], root, last[3])
     return notes

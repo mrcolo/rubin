@@ -65,7 +65,9 @@ Note format: `{start, dur, pitch, vel}` — start/dur in beats, pitch 0–127
 `swing` (50 = straight, ~62 = MPC feel; `swing_unit` 0.5/0.25 for
 8th/16th swing; per-track override supported). Tracks can declare a
 `progression` (`{chords: ["Am", "F", "Cmaj7", "E7"]}`) instead of raw
-notes — voicings are generated (styles: pad / bass / arp), with `repeat`
+notes — voicings are generated (styles: pad / bass / arp / melody — the
+latter writes a hook: chord tones on strong beats, one peak, resolves to
+the root), with `repeat`
 and `start_bar` for staged entrances; `drums: {pattern: "half_time"}`
 generates a full groove. `analyze_midi` reads the same chord names back.
 
