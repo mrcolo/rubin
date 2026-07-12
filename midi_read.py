@@ -98,6 +98,11 @@ def analyze(path):
     with open(path, "rb") as f:
         ppq, tempo, tracks = parse_smf(f.read())
     out = {"tempo": round(tempo, 2), "tracks": []}
+    all_notes = [n for t in tracks for n in t["notes"]]
+    key, conf = guess_key(all_notes)
+    if key:
+        out["key_guess"] = key
+        out["key_confidence"] = conf
     for t in tracks:
         notes = t["notes"]
         if not notes:
@@ -125,3 +130,35 @@ def analyze(path):
             "max_polyphony": poly,
         })
     return out
+
+
+# Krumhansl-Kessler key profiles (major / minor)
+_KS_MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
+_KS_MINOR = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
+
+
+def _correlate(hist, profile):
+    n = 12
+    mh, mp = sum(hist) / n, sum(profile) / n
+    num = sum((hist[i] - mh) * (profile[i] - mp) for i in range(n))
+    dh = sum((h - mh) ** 2 for h in hist) ** 0.5
+    dp = sum((p - mp) ** 2 for p in profile) ** 0.5
+    return num / (dh * dp) if dh and dp else 0.0
+
+
+def guess_key(notes):
+    """Estimate key from notes [(start, dur, pitch, vel)] via pitch-class
+    profile correlation (duration-weighted). Returns (name, confidence)."""
+    hist = [0.0] * 12
+    for _s, dur, pitch, _v in notes:
+        hist[pitch % 12] += max(float(dur), 0.1)
+    if not any(hist):
+        return None, 0.0
+    best = (None, -2.0)
+    for root in range(12):
+        rot = hist[root:] + hist[:root]
+        for profile, suffix in ((_KS_MAJOR, ""), (_KS_MINOR, "m")):
+            r = _correlate(rot, profile)
+            if r > best[1]:
+                best = (NOTE_NAMES[root] + suffix, r)
+    return best[0], round(best[1], 3)

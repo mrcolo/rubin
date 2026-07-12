@@ -65,5 +65,38 @@ class TestAnalyze(unittest.TestCase):
             os.unlink(path)
 
 
+class TestGuessKey(unittest.TestCase):
+    def scale(self, pitches, tonic_hold):
+        notes = [(i, 1, p, 90) for i, p in enumerate(pitches)]
+        notes += [(len(pitches), 4, p, 95) for p in tonic_hold]
+        return notes
+
+    def test_a_minor(self):
+        key, conf = midi_read.guess_key(
+            self.scale([57, 59, 60, 62, 64, 65, 67, 69], [57, 60, 64]))
+        self.assertEqual(key, "Am")
+        self.assertGreater(conf, 0.8)
+
+    def test_c_major(self):
+        key, conf = midi_read.guess_key(
+            self.scale([60, 62, 64, 65, 67, 69, 71, 72], [60, 64, 67]))
+        self.assertEqual(key, "C")
+
+    def test_empty(self):
+        self.assertEqual(midi_read.guess_key([]), (None, 0.0))
+
+    def test_analyze_includes_key(self):
+        import tempfile, os as _os, midi
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            midi.write_smf(path, 85, [{"channel": 0, "notes":
+                self.scale([57, 59, 60, 62, 64, 65, 67, 69], [57, 60, 64])}])
+            out = midi_read.analyze(path)
+            self.assertEqual(out["key_guess"], "Am")
+        finally:
+            _os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()
