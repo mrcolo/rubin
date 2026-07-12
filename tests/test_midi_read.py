@@ -343,5 +343,33 @@ class TestNumericPitchBounds(unittest.TestCase):
             _os.unlink(path)
 
 
+class TestDrumPatternChoice(unittest.TestCase):
+    def suggest_for(self, tempo, swing=None):
+        import tempfile, os as _os, sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            kw = {"key": "Am"}
+            if swing:
+                kw["swing"] = swing
+            midi.write_smf(path, tempo, [{"name": "B", "channel": 0,
+                "notes": midi.progression_notes(["Am", "F", "C", "E"], style="bass")}], **kw)
+            s = midi_read.suggest_accompaniment(path)
+            return next(t for t in s["tracks"] if t["name"] == "Drums")["drums"]["pattern"]
+        finally:
+            _os.unlink(path)
+
+    def test_slow_straight_is_half_time(self):
+        self.assertEqual(self.suggest_for(85), "half_time")
+
+    def test_swung_slow_is_boom_bap(self):
+        self.assertEqual(self.suggest_for(90, swing=62), "boom_bap")
+
+    def test_fast_straight_is_four_on_floor(self):
+        self.assertEqual(self.suggest_for(124), "four_on_floor")
+
+
 if __name__ == "__main__":
     unittest.main()

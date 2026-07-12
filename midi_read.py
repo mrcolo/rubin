@@ -436,8 +436,20 @@ def suggest_accompaniment(path):
         tracks.append({"name": "Arp", "channel": 2, "program": 81,
                        "progression": {"chords": chords, "style": "arp",
                                        "bars_per_chord": bars_per_chord}})
+    # drum pattern from the source's tempo and feel
+    swung = any(t.get("swing_guess", 50) > 54 for t in a["tracks"])
+    if swung and tempo < 110:
+        pattern = "boom_bap"
+    elif tempo >= 118 and not swung:
+        pattern = "four_on_floor"
+    elif tempo >= 130:
+        pattern = "trap"
+    else:
+        pattern = "half_time"
+    notes.append("drum pattern '%s' chosen from tempo %g and %s feel"
+                 % (pattern, tempo, "swung" if swung else "straight"))
     tracks.append({"name": "Drums", "channel": 9,
-                   "drums": {"pattern": "half_time",
+                   "drums": {"pattern": pattern,
                              "bars": max(8, len(chords) * bars_per_chord)}})
     out = {"tempo": tempo, "tracks": tracks, "humanize": 0.02}
     if key:
