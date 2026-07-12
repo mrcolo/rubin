@@ -204,6 +204,48 @@ end tell
     return int(out) if out.isdigit() else None
 
 
+_lib_container = None
+
+
+def _library_container():
+    """Locate the window group holding the Library (bounded AX subtree).
+
+    Scanning the whole window explodes on real projects (every region/note is
+    an AX element); the Library subtree stays small. Cached per process.
+    """
+    global _lib_container
+    if _lib_container:
+        return _lib_container
+    for i in range(1, 7):
+        pth = "group %d of window 1" % i
+        script = '''
+tell application "System Events" to tell process "%s"
+    try
+        with timeout of 25 seconds
+            set els to entire contents of (%s)
+            repeat with el in els
+                try
+                    if role of el is "AXTextField" then
+                        if (value of attribute "AXPlaceholderValue" of el) is "Search Sounds" then return "yes"
+                    end if
+                end try
+            end repeat
+            return "no"
+        end timeout
+    on error
+        return "no"
+    end try
+end tell
+''' % (process_name(), pth)
+        try:
+            if osa(script, timeout=35) == "yes":
+                _lib_container = pth
+                return pth
+        except LogicError:
+            continue
+    raise LogicError("Library pane not found — is the Library open (Y)?")
+
+
 def load_patch(query):
     """Load a Library patch onto the selected track by search.
 
@@ -215,6 +257,16 @@ def load_patch(query):
         raise LogicError("Logic Pro is not running")
     was_open = _library_checkbox_value()
     open_lib = "" if was_open == 1 else 'keystroke "y"\n        delay 1.2'
+    if was_open != 1:
+        activate()
+        osa('tell application "System Events" to tell process "%s" to keystroke "y"'
+            % process_name())
+        import time as _time
+
+        _time.sleep(1.2)
+        open_lib = ""
+        was_open = 0
+    container = _library_container()
     script = '''
 tell application "%(app)s" to activate
 delay 0.5
@@ -222,10 +274,10 @@ tell application "System Events"
     tell process "%(proc)s"
         set frontmost to true
         %(open_lib)s
-        -- find the Library search field by its placeholder
+        -- find the Library search field by its placeholder (bounded subtree)
         set sf to missing value
         with timeout of 60 seconds
-            set allEls to entire contents of window 1
+            set allEls to entire contents of (%(container)s)
             repeat with el in allEls
                 try
                     if role of el is "AXTextField" then
@@ -254,7 +306,7 @@ tell application "System Events"
             set firstRow to missing value
             set namedCount to 0
             with timeout of 60 seconds
-                set allEls2 to entire contents of window 1
+                set allEls2 to entire contents of (%(container)s)
                 repeat with el in allEls2
                     try
                         if role of el is "AXRow" then
@@ -296,6 +348,7 @@ end tell
         "app": app_name(),
         "proc": process_name(),
         "open_lib": open_lib,
+        "container": container,
         "query": query.replace("\\", "\\\\").replace('"', '\\"'),
     }
     loaded = osa(script, timeout=180)
