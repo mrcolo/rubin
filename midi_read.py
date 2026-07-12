@@ -438,14 +438,14 @@ def suggest_accompaniment(path):
                                        "bars_per_chord": bars_per_chord}})
     # drum pattern from the source's tempo and feel
     swung = any(t.get("swing_guess", 50) > 54 for t in a["tracks"])
-    if swung and tempo < 110:
-        pattern = "boom_bap"
+    if tempo >= 130:
+        pattern = "trap"          # 130-160, straight 16ths, half-time feel
     elif tempo >= 118 and not swung:
-        pattern = "four_on_floor"
-    elif tempo >= 130:
-        pattern = "trap"
+        pattern = "four_on_floor"  # house range
+    elif swung and tempo < 110:
+        pattern = "boom_bap"       # swung hip-hop
     else:
-        pattern = "half_time"
+        pattern = "half_time"      # slow dark R&B default
     notes.append("drum pattern '%s' chosen from tempo %g and %s feel"
                  % (pattern, tempo, "swung" if swung else "straight"))
     tracks.append({"name": "Drums", "channel": 9,

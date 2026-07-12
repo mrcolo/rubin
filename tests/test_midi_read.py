@@ -370,6 +370,9 @@ class TestDrumPatternChoice(unittest.TestCase):
     def test_fast_straight_is_four_on_floor(self):
         self.assertEqual(self.suggest_for(124), "four_on_floor")
 
+    def test_very_fast_is_trap(self):
+        self.assertEqual(self.suggest_for(140), "trap")
+
 
 if __name__ == "__main__":
     unittest.main()
