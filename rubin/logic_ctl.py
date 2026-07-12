@@ -225,54 +225,19 @@ end tell
 
 
 def import_audio(path):
-    """File > Import > Audio File..., driven SAFELY to `path`.
-
-    Hard rule learned the hard way: never keystroke a path unless a file panel
-    is confirmed frontmost. If the panel doesn't appear, abort with the menu
-    still harmlessly open rather than typing into the arrange window (where a
-    path's letters fire as key commands and can start a recording).
-    """
-    if not logic_running():
-        raise LogicError("Logic Pro is not running")
+    """Audio import into Logic is NOT automatable — verified exhaustively:
+    File > Import > Audio File opens no file panel in any process (it routes
+    to Logic's Browser pane / expects a drag). Rather than attempt fragile UI
+    automation that has damaged sessions, this reveals the file in Finder and
+    returns drag instructions. Use reveal_in_finder + a manual drop, or drag
+    from the Finder window this opens."""
     path = os.path.expanduser(path)
     if not os.path.isfile(path):
         raise LogicError("no such audio file: %s" % path)
-    # open the menu item
-    osa('''
-tell application "%(app)s" to activate
-delay 0.5
-tell application "System Events" to tell process "%(proc)s"
-    set frontmost to true
-    set m to menu 1 of menu item "Import" of menu 1 of menu bar item "File" of menu bar 1
-    click (first menu item of m whose name begins with "Audio")
-end tell
-''' % {"app": app_name(), "proc": process_name()}, timeout=30)
-    # poll for the panel; abort (Escape) if it never shows — do NOT type blind
-    for _ in range(12):
-        time.sleep(0.5)
-        if _file_panel_frontmost():
-            break
-    else:
-        osa('tell application "System Events" to tell process "%s" to key code 53'
-            % process_name())
-        raise LogicError(
-            "audio-import file panel did not appear — aborted without typing "
-            "(refusing to leak a path into the arrange window)")
-    # panel confirmed: set the Go-to-folder field by value, not blind keystroke
-    osa('''
-tell application "System Events" to tell process "%(proc)s"
-    keystroke "g" using {command down, shift down}
-    delay 0.8
-    set tf to text field 1 of sheet 1 of window 1
-    set value of tf to "%(path)s"
-    delay 0.3
-    key code 36
-    delay 0.9
-    key code 36
-    delay 1.2
-end tell
-''' % {"proc": process_name(),
-        "path": path.replace("\\", "\\\\").replace('"', '\\"')}, timeout=45)
+    reveal_in_finder(path)
+    return ("Audio import isn't scriptable in Logic (no file panel exists to "
+            "drive). Revealed %s in Finder — drag it onto a track in the open "
+            "project to place it." % os.path.basename(path))
 
 
 def project_state():
