@@ -16,8 +16,10 @@ import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import midi as midilib  # noqa: E402
+import midi_read  # noqa: E402
 import logic_ctl  # noqa: E402
 import patches  # noqa: E402
+import transcribe as transcribe_mod  # noqa: E402
 
 DEFAULT_OUT_DIR = os.path.expanduser("~/Desktop")
 
@@ -183,6 +185,44 @@ TOOLS = [
         },
     },
     {
+        "name": "transcribe_audio",
+        "description": (
+            "Transcribe an audio file (wav/mp3/aiff/flac/m4a/ogg) to MIDI using "
+            "Spotify's basic-pitch, cached by content hash under ~/.cache/rubin. "
+            "Returns the cache entry plus an analysis of what the instrument "
+            "plays (range, density, polyphony). Use the cached .mid with "
+            "import_midi/open_midi_as_project, or the analysis to inform new parts."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Audio file path"},
+                "label": {"type": "string", "description": "Optional friendly name for the cache"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "list_transcriptions",
+        "description": "List cached audio->MIDI transcriptions, optionally filtered by label/source substring.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"query": {"type": "string"}},
+        },
+    },
+    {
+        "name": "analyze_midi",
+        "description": (
+            "Parse any .mid and summarize per-track content: note count, pitch "
+            "range, mean velocity, density (notes/beat), max polyphony, tempo."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "MIDI file path"}},
+            "required": ["path"],
+        },
+    },
+    {
         "name": "find_patches",
         "description": (
             "Search Logic's factory patch index on disk. Returns exact patch names "
@@ -342,6 +382,20 @@ def handle_tool(name, args):
     if name == "select_track":
         logic_ctl.select_track(args["index"])
         return "Selected track %d" % args["index"]
+
+    if name == "transcribe_audio":
+        entry = transcribe_mod.transcribe(args["path"], label=args.get("label"))
+        analysis = midi_read.analyze(entry["midi"])
+        return json.dumps({"cache": entry, "analysis": analysis})
+
+    if name == "list_transcriptions":
+        return json.dumps(transcribe_mod.list_transcriptions(args.get("query")))
+
+    if name == "analyze_midi":
+        path = os.path.expanduser(args["path"])
+        if not os.path.isfile(path):
+            raise ValueError("no such file: %s" % path)
+        return json.dumps(midi_read.analyze(path))
 
     if name == "find_patches":
         hits = patches.find_patches(

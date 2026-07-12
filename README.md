@@ -30,6 +30,9 @@ silently and read garbage state. rubin flips the approach:
 | `open_midi_as_project` | Open a .mid in Logic as a new project (no dialogs, most reliable) |
 | `import_midi` | File > Import > MIDI File into the open project at bar 1 |
 | `compose_and_import` | Both steps in one call |
+| `transcribe_audio` | Audio → MIDI via [basic-pitch](https://github.com/spotify/basic-pitch), content-hash cached |
+| `list_transcriptions` | Browse the transcription cache |
+| `analyze_midi` | Summarize any .mid: range, density, polyphony, tempo per track |
 | `find_patches` | Search the on-disk factory patch index (name / category / engine) |
 | `select_track` | Select track N (1-based) |
 | `load_patch` | Load a Library patch onto the selected track; returns the loaded name |
@@ -56,10 +59,21 @@ load_patch {query: "Drifting Away"}
   → Loaded patch 'Drifting Away' on the selected track
 ```
 
+## Ears: audio in, MIDI out
+
+`transcribe_audio` turns any recording — a hummed melody, a guitar take, a
+sample — into MIDI with Spotify's basic-pitch, cached by content hash under
+`~/.cache/rubin/midi` so repeat calls are free. `analyze_midi` then reads the
+result back (rubin has its own SMF parser) and reports what the instrument
+plays: pitch range, note density, polyphony. That loop — hear it, read it,
+compose against it — is how rubin learns what source material sounds like.
+
 ## Install
 
 ```sh
 claude mcp add --scope user rubin -- /usr/bin/python3 ~/dev/rubin/server.py
+# optional, for transcribe_audio:
+cd ~/dev/rubin && python3 -m venv .venv-bp && .venv-bp/bin/pip install basic-pitch
 ```
 
 Requires macOS Accessibility + Automation permissions for the host app
@@ -78,6 +92,8 @@ python3 server.py --demo --write-only   # just write the .mid
 
 - `server.py` — MCP stdio server (hand-rolled JSON-RPC, no SDK)
 - `midi.py` — Standard MIDI File writer
+- `midi_read.py` — SMF parser + per-track analyzer
+- `transcribe.py` — basic-pitch wrapper + content-addressed cache
 - `patches.py` — factory patch index reader
 - `logic_ctl.py` — the minimal AppleScript/AX layer
 - `demo_beat.py` — 8-bar dark R&B demo (85 BPM, Am–F–C–E)

@@ -1,0 +1,69 @@
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import midi
+import midi_read
+
+
+class TestRoundTrip(unittest.TestCase):
+    def test_notes_survive_write_read(self):
+        notes = [(0, 1, 60, 100), (1, 0.5, 64, 90), (1.5, 2, 67, 80)]
+        data = midi.build_smf(92, [{"name": "Keys", "channel": 0, "notes": notes}])
+        ppq, tempo, tracks = midi_read.parse_smf(data)
+        self.assertEqual(ppq, midi.PPQ)
+        self.assertAlmostEqual(tempo, 92, places=1)
+        # track 0 is the tempo track; notes live in track 1
+        self.assertEqual(tracks[1]["name"], "Keys")
+        got = tracks[1]["notes"]
+        self.assertEqual(len(got), 3)
+        for (es, ed, ep, ev), (gs, gd, gp, gv) in zip(sorted(notes), got):
+            self.assertAlmostEqual(gs, es, places=3)
+            self.assertAlmostEqual(gd, ed, places=3)
+            self.assertEqual(gp, ep)
+            self.assertEqual(gv, ev)
+
+    def test_overlapping_same_pitch(self):
+        notes = [(0, 4, 60, 100), (1, 1, 60, 90)]
+        data = midi.build_smf(120, [{"channel": 0, "notes": notes}])
+        _, _, tracks = midi_read.parse_smf(data)
+        self.assertEqual(len(tracks[1]["notes"]), 2)
+
+    def test_running_status_and_channel(self):
+        data = midi.build_smf(120, [{"channel": 9, "notes": [(0, 1, 36, 100), (1, 1, 38, 90)]}])
+        _, _, tracks = midi_read.parse_smf(data)
+        self.assertEqual([n[2] for n in tracks[1]["notes"]], [36, 38])
+
+    def test_not_midi_raises(self):
+        with self.assertRaises(ValueError):
+            midi_read.parse_smf(b"RIFFxxxx")
+
+
+class TestAnalyze(unittest.TestCase):
+    def test_analysis_fields(self):
+        import tempfile
+
+        notes = [(i * 0.5, 0.4, 60 + (i % 12), 100) for i in range(16)]
+        chord = [(0, 4, p, 80) for p in (48, 52, 55)]
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            midi.write_smf(path, 85, [
+                {"name": "Lead", "channel": 0, "notes": notes},
+                {"name": "Pad", "channel": 1, "notes": chord},
+            ])
+            out = midi_read.analyze(path)
+            self.assertAlmostEqual(out["tempo"], 85, places=1)
+            lead = next(t for t in out["tracks"] if t["name"] == "Lead")
+            self.assertEqual(lead["notes"], 16)
+            self.assertEqual(lead["low"], "C3")
+            self.assertEqual(lead["max_polyphony"], 1)
+            pad = next(t for t in out["tracks"] if t["name"] == "Pad")
+            self.assertEqual(pad["max_polyphony"], 3)
+        finally:
+            os.unlink(path)
+
+
+if __name__ == "__main__":
+    unittest.main()
