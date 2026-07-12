@@ -785,8 +785,7 @@ def check():
             if a["type"] == "instrument" and a["manufacturer"] != "Apple")
     except Exception as e:
         status["audio_units"] = "error: %s" % e
-    bp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                      ".venv-bp", "bin", "basic-pitch")
+    bp = transcribe_mod._BP_CANDIDATES[0]
     status["transcription"] = "ready" if os.path.isfile(bp) else (
         "missing: python3 -m venv .venv-bp && .venv-bp/bin/pip install basic-pitch")
     cache = os.path.expanduser("~/.cache/rubin/midi")

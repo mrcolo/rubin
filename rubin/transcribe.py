@@ -16,7 +16,11 @@ import tempfile
 CACHE_DIR = os.path.expanduser("~/.cache/rubin/midi")
 INDEX_PATH = os.path.join(CACHE_DIR, "index.json")
 
+# repo root is one level up from this package module
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _BP_CANDIDATES = [
+    os.path.join(_REPO_ROOT, ".venv-bp", "bin", "basic-pitch"),
+    # pre-package layout, in case someone runs from an old checkout
     os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv-bp", "bin", "basic-pitch"),
     shutil.which("basic-pitch") or "",
 ]
