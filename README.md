@@ -155,5 +155,8 @@ python3 server.py --demo --write-only   # just write the .mid
   not silent.
 - Logic auto-renames a track to its patch name after `load_patch` unless the
   track was named manually first.
+- Library patch loading can silently no-op in some window states (multiple
+  projects open, focus elsewhere); `load_patch` verifies via header readback
+  and reports FAILED instead of pretending.
 - Tested on Logic Pro X 10.x/11 ("Logic Pro X.app" and "Logic Pro.app" are
   both handled), macOS 14+.
