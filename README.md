@@ -42,6 +42,7 @@ silently and read garbage state. rubin flips the approach:
 | `list_transcriptions` | Browse the transcription cache |
 | `analyze_midi` | Summarize any .mid: range, density, polyphony, tempo per track |
 | `find_patches` | Search the on-disk factory patch index (name / category / engine) |
+| `find_channel_strips` | Search factory FX-chain settings (.cst): buses, mastering, track chains |
 | `select_track` | Select track N (1-based) |
 | `load_patch` | Load a Library patch onto the selected track; returns the loaded name |
 | `list_tracks` | Read back `[{name, patch}]` from the open project |

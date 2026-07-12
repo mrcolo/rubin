@@ -276,6 +276,23 @@ TOOLS = [
         },
     },
     {
+        "name": "find_channel_strips",
+        "description": (
+            "Search Logic's factory channel-strip settings (.cst) — complete FX "
+            "chains (EQ, compression, sends, spaces). Categories: 'Track/...', "
+            "'Bus' (reverbs/delays), 'Output/02 Mastering', 'Instrument'. Load one "
+            "by searching its exact name in the Library (load_patch)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Name substring"},
+                "category": {"type": "string", "description": "Category path substring"},
+                "limit": {"type": "integer", "description": "Max results (default 25)"},
+            },
+        },
+    },
+    {
         "name": "list_plugins",
         "description": (
             "List installed Audio Units from the system registry (instruments and "
@@ -426,6 +443,13 @@ def handle_tool(name, args):
         prefer = tuple(args.get("prefer") or ("Import Tempo", "Import", "Yes", "OK"))
         clicked = logic_ctl.answer_dialog(prefer)
         return "Clicked '%s'" % clicked if clicked else "No dialog present"
+
+    if name == "find_channel_strips":
+        return json.dumps(patches.find_channel_strips(
+            query=args.get("query"),
+            category=args.get("category"),
+            limit=args.get("limit", 25),
+        ))
 
     if name == "list_plugins":
         return json.dumps(logic_ctl.list_audio_units())

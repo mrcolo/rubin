@@ -66,3 +66,48 @@ def find_patches(query=None, plugin=None, category=None, limit=25):
         if len(hits) >= max(1, int(limit)):
             break
     return hits
+
+
+CST_ROOTS = [
+    "/Library/Application Support/Logic/Channel Strip Settings",
+    os.path.expanduser("~/Music/Audio Music Apps/Channel Strip Settings"),
+]
+
+_cst_index = None
+
+
+def _build_cst_index():
+    global _cst_index
+    if _cst_index is not None:
+        return _cst_index
+    _cst_index = []
+    for root in CST_ROOTS:
+        if not os.path.isdir(root):
+            continue
+        for dirpath, _dirs, files in os.walk(root):
+            for f in files:
+                if f.endswith(".cst"):
+                    category = os.path.relpath(dirpath, root)
+                    _cst_index.append((f[:-4], "" if category == "." else category))
+    return _cst_index
+
+
+def find_channel_strips(query=None, category=None, limit=25):
+    """Search factory channel-strip settings (.cst) — complete FX chains
+    (EQ, compression, sends) loadable from Logic's Library by name.
+
+    `category` filters the path, e.g. 'Track/04 Bass Guitar', 'Bus',
+    'Instrument'. Case-insensitive substrings.
+    """
+    q = (query or "").lower()
+    cat = (category or "").lower()
+    hits = []
+    for name, strip_cat in _build_cst_index():
+        if q and q not in name.lower():
+            continue
+        if cat and cat not in strip_cat.lower():
+            continue
+        hits.append({"name": name, "category": strip_cat})
+        if len(hits) >= max(1, int(limit)):
+            break
+    return hits

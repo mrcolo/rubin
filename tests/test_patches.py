@@ -40,5 +40,15 @@ class TestOffline(unittest.TestCase):
             patches.PATCH_ROOTS, patches._index = old_roots, old_index
 
 
+@unittest.skipUnless(HAVE_LOGIC, "Logic Pro factory content not installed")
+class TestChannelStrips(unittest.TestCase):
+    def test_index_and_filters(self):
+        self.assertGreater(len(patches._build_cst_index()), 100)
+        hits = patches.find_channel_strips(category="Bus", limit=5)
+        self.assertTrue(hits)
+        for h in hits:
+            self.assertIn("bus", h["category"].lower())
+
+
 if __name__ == "__main__":
     unittest.main()
