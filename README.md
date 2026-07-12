@@ -40,7 +40,8 @@ silently and read garbage state. rubin flips the approach:
 | `compose_and_import` | Both steps in one call |
 | `transcribe_audio` | Audio → MIDI via [basic-pitch](https://github.com/spotify/basic-pitch), content-hash cached |
 | `list_transcriptions` | Browse the transcription cache |
-| `analyze_midi` | Summarize any .mid: key + swing detection, density contour, range, polyphony, tempo |
+| `analyze_midi` | Full analysis: key/swing/chord detection, density contour, warnings, per-track stats |
+| `describe_midi` | The same, as one readable paragraph |
 | `find_patches` | Search the on-disk factory patch index (name / category / engine) |
 | `find_surge_presets` | Discover installed Surge XT presets (load via Surge's browser) |
 | `find_channel_strips` | Discover factory FX-chain settings (.cst) — names for the Setting menu; not Library-loadable |
@@ -64,6 +65,24 @@ Note format: `{start, dur, pitch, vel}` — start/dur in beats, pitch 0–127
 notes — voicings are generated (styles: pad / bass / arp), with `repeat`
 and `start_bar` for staged entrances; `drums: {pattern: "half_time"}`
 generates a full groove. `analyze_midi` reads the same chord names back.
+
+### Example: a full backing track from declarations
+
+```
+compose_midi {tempo: 85, key: "Am", name: "sketch", tracks: [
+  {name: "Pad",   channel: 1, progression: {chords: ["Am","F","C","E"], repeat: 2}},
+  {name: "Drums", channel: 9, drums: {pattern: "half_time", bars: 12, start_bar: 4}},
+  {name: "Bass",  channel: 0, progression: {chords: ["Am","F","C","E"], style: "bass", start_bar: 4}},
+  {name: "Arp",   channel: 2, progression: {chords: ["Am","F","C","E"], style: "arp", start_bar: 8}},
+]}
+describe_midi {path: "~/Desktop/sketch.mid"}
+  → 4 track(s), 283 notes, ~16 bars at 85 BPM. key Am (82% confident).
+    progression Am-F-C-E... dynamic arrangement (density 0.4-6.7 notes/beat). ...
+```
+
+Staged entrances (`start_bar`) give the arrangement a real build; the
+analyzer verifies its own output — key, chords, contour, and warnings for
+register clashes or robotic velocities.
 
 ### Example: an Alchemy pad in three calls
 
@@ -101,7 +120,7 @@ Requires macOS Accessibility + Automation permissions for the host app
 ## Test & demo
 
 ```sh
-python3 -m unittest discover -s tests   # 22 tests, no Logic needed for most
+python3 -m unittest discover -s tests   # 76 tests, no Logic needed for most
 python3 server.py --demo                # compose + open a demo beat in Logic
 python3 server.py --demo --write-only   # just write the .mid
 ```
