@@ -103,7 +103,7 @@ def analyze(path):
     if key:
         out["key_guess"] = key
         out["key_confidence"] = conf
-    if all_notes and max(n[0] + n[1] for n in all_notes) > 32:
+    if all_notes and max(n[0] + n[1] for n in all_notes) >= 32:
         # only meaningful past ~8 bars; short clips are one window anyway
         out["density_curve"] = density_curve(tracks)
     for t in tracks:
@@ -136,8 +136,9 @@ def analyze(path):
         # skips drum tracks and one-note parts)
         if len(notes) >= 8 and len({n[2] % 12 for n in notes}) >= 5:
             tkey, tconf = guess_key(notes)
-            entry["key_guess"] = tkey
-            entry["key_confidence"] = tconf
+            if tconf >= 0.6:  # low correlation = atonal content (e.g. drums)
+                entry["key_guess"] = tkey
+                entry["key_confidence"] = tconf
         sw = guess_swing(notes)
         if sw is not None:
             entry["swing_guess"] = sw
