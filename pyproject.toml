@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rubin-mcp"
+version = "1.4.0"
+description = "MCP server that turns Logic Pro into an AI-playable instrument: compose MIDI, load patches, transcribe audio"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Francesco Colonnese" }]
+
+[project.scripts]
+rubin-mcp = "rubin.server:main"
+
+[project.urls]
+Repository = "https://github.com/mrcolo/rubin"
+
+[tool.setuptools]
+packages = ["rubin"]

@@ -111,7 +111,12 @@ compose against it — is how rubin learns what source material sounds like.
 ## Install
 
 ```sh
+# from a clone (development)
 claude mcp add --scope user rubin -- /usr/bin/python3 ~/dev/rubin/server.py
+
+# or installed as a package
+pip install git+https://github.com/mrcolo/rubin
+claude mcp add --scope user rubin -- rubin-mcp
 python3 server.py --check   # environment health: Logic, indexes, AUs, transcription
 python3 server.py --verify song.mid   # pre-flight: analysis + warnings, exit 1 if dirty
 # optional, for transcribe_audio:
