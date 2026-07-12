@@ -283,5 +283,40 @@ class TestDrumPattern(unittest.TestCase):
             _os.unlink(path)
 
 
+class TestHumanizeTiming(unittest.TestCase):
+    def test_deterministic_and_effective(self):
+        notes = [(i * 0.5, 0.4, 60, 90) for i in range(16)]
+        a = midi.build_smf(90, [{"channel": 0, "notes": notes}])
+        b = midi.build_smf(90, [{"channel": 0, "notes": notes}], humanize=0.02)
+        self.assertNotEqual(a, b)
+        self.assertEqual(b, midi.build_smf(90, [{"channel": 0, "notes": notes}], humanize=0.02))
+
+    def test_downbeats_anchored(self):
+        for bar_start in (0.0, 4.0, 8.0, 12.0):
+            for i in range(8):
+                self.assertEqual(midi._humanize_start(bar_start, i, 0.03), bar_start)
+
+    def test_drift_bounded(self):
+        for i in range(50):
+            drift = midi._humanize_start(2.5, i, 0.02) - 2.5
+            self.assertLessEqual(abs(drift), 0.02 + 1e-9)
+
+    def test_some_notes_drift(self):
+        drifts = [midi._humanize_start(2.5, i, 0.02) != 2.5 for i in range(13)]
+        self.assertGreater(sum(drifts), 8)
+
+
+class TestFriendlyErrors(unittest.TestCase):
+    def test_missing_channel_message(self):
+        import os as _os, sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import server
+        with self.assertRaises(ValueError) as ctx:
+            server._do_compose({"tempo": 90, "path": "/tmp/x.mid",
+                                "tracks": [{"name": "Oops", "notes": []}]})
+        self.assertIn("Oops", str(ctx.exception))
+        self.assertIn("channel", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

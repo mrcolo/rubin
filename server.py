@@ -151,6 +151,7 @@ TOOLS = [
                 "tempo_changes": TEMPO_CHANGES_SCHEMA,
                 "swing": {"type": "number", "description": "50-75; 50 = straight, ~62 = MPC swing (offbeats late)"},
                 "swing_unit": {"type": "number", "description": "Swung subdivision in beats: 0.5 = 8ths (default), 0.25 = 16ths"},
+                "humanize": {"type": "number", "description": "Micro-timing drift in beats (try 0.015-0.03); downbeats stay anchored"},
                 "path": {"type": "string", "description": "Output .mid path (default ~/Desktop/<name>.mid)"},
                 "name": {"type": "string", "description": "Base filename if path not given"},
             },
@@ -183,6 +184,7 @@ TOOLS = [
                 "tempo_changes": TEMPO_CHANGES_SCHEMA,
                 "swing": {"type": "number", "description": "50-75; 50 = straight, ~62 = MPC swing (offbeats late)"},
                 "swing_unit": {"type": "number", "description": "Swung subdivision in beats: 0.5 = 8ths (default), 0.25 = 16ths"},
+                "humanize": {"type": "number", "description": "Micro-timing drift in beats (try 0.015-0.03); downbeats stay anchored"},
                 "name": {"type": "string", "description": "Base filename (default 'composition')"},
             },
             "required": ["tempo", "tracks"],
@@ -396,7 +398,11 @@ def _do_compose(args):
         path = os.path.join(DEFAULT_OUT_DIR, base + ".mid")
     path = os.path.expanduser(path)
     tracks = []
-    for t in args["tracks"]:
+    for idx, t in enumerate(args["tracks"]):
+        if "channel" not in t:
+            raise ValueError(
+                "track %d (%s) is missing 'channel' (0-15; 9 = drums)"
+                % (idx + 1, t.get("name", "unnamed")))
         drums = t.get("drums")
         drum_notes = midilib.drum_pattern(
             drums["pattern"],
@@ -425,6 +431,7 @@ def _do_compose(args):
                 "volume": t.get("volume"),
                 "pan": t.get("pan"),
                 "swing": t.get("swing"),
+                "humanize": t.get("humanize"),
                 "notes": [
                     n if isinstance(n, (list, tuple))
                     else (n["start"], n["dur"], n["pitch"], n["vel"])
@@ -450,6 +457,7 @@ def _do_compose(args):
         path, args["tempo"], tracks, time_sig,
         key=args.get("key"), tempo_changes=tempo_changes,
         swing=args.get("swing"), swing_unit=args.get("swing_unit", 0.5),
+        humanize=args.get("humanize"),
     )
     return path, size
 

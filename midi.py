@@ -62,8 +62,20 @@ def _swing_start(start, swing, unit):
     return start
 
 
+def _humanize_start(start, i, amount, beats_per_bar=4):
+    """Deterministic micro-timing drift, up to +/- `amount` beats.
+
+    Bar downbeats stay anchored — players drift inside the bar but land
+    the one together.
+    """
+    if not amount or start % beats_per_bar < 1e-9:
+        return start
+    frac = (((i * 7919) % 13) - 6) / 6.0  # -1..1, deterministic per index
+    return max(0.0, start + frac * float(amount))
+
+
 def build_smf(tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None,
-              swing=None, swing_unit=0.5):
+              swing=None, swing_unit=0.5, humanize=None):
     """tracks: [{name, channel, program?, volume?, pan?,
                  notes: [(start_beats, dur_beats, pitch, vel), ...],
                  cc: [(beat, controller, value), ...],
@@ -73,7 +85,9 @@ def build_smf(tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None,
     applied after the initial tempo. `swing` (50-75, 50 = straight) moves
     offbeat notes late, DAW-style; `swing_unit` is the subdivision in beats
     (0.5 = 8th swing, 0.25 = 16th swing); tracks may override with their own
-    `swing`. Returns SMF format-1 bytes. Channel 9 is the GM drum channel.
+    `swing`. `humanize` (beats, e.g. 0.02) adds deterministic micro-timing
+    drift to non-downbeat notes; tracks may override. Returns SMF format-1
+    bytes. Channel 9 is the GM drum channel.
     """
     chunks = []
     num, den = time_sig
@@ -111,11 +125,13 @@ def build_smf(tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None,
         if t.get("pan") is not None:
             ev.append((0, 0, bytes([0xB0 | ch, 10, max(0, min(127, int(t["pan"])))])))
         track_swing = t.get("swing", swing)
-        for note in t["notes"]:
+        track_hum = t.get("humanize", humanize)
+        for ni, note in enumerate(t["notes"]):
             start, dur, pitch, vel = note
             if float(start) < 0:
                 raise ValueError("negative note start: %r" % (note,))
             start = _swing_start(float(start), track_swing, swing_unit)
+            start = _humanize_start(start, ni, track_hum, time_sig[0])
             pitch = int(pitch)
             if not 0 <= pitch <= 127:
                 raise ValueError("pitch out of range 0-127: %r" % (note,))
@@ -148,9 +164,9 @@ def build_smf(tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None,
 
 
 def write_smf(path, tempo_bpm, tracks, time_sig=(4, 4), key=None, tempo_changes=None,
-              swing=None, swing_unit=0.5):
+              swing=None, swing_unit=0.5, humanize=None):
     data = build_smf(tempo_bpm, tracks, time_sig, key=key, tempo_changes=tempo_changes,
-                     swing=swing, swing_unit=swing_unit)
+                     swing=swing, swing_unit=swing_unit, humanize=humanize)
     with open(path, "wb") as f:
         f.write(data)
     return len(data)
