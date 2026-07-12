@@ -119,7 +119,7 @@ def analyze(path):
         for _, d in events:
             cur += d
             poly = max(poly, cur)
-        out["tracks"].append({
+        entry = {
             "name": t["name"],
             "notes": len(notes),
             "low": pitch_name(min(pitches)),
@@ -128,7 +128,14 @@ def analyze(path):
             "length_beats": round(span, 2),
             "notes_per_beat": round(len(notes) / span, 2) if span else 0,
             "max_polyphony": poly,
-        })
+        }
+        # per-track key only where it's meaningful (enough tonal variety —
+        # skips drum tracks and one-note parts)
+        if len(notes) >= 8 and len({n[2] % 12 for n in notes}) >= 5:
+            tkey, tconf = guess_key(notes)
+            entry["key_guess"] = tkey
+            entry["key_confidence"] = tconf
+        out["tracks"].append(entry)
     return out
 
 

@@ -98,5 +98,25 @@ class TestGuessKey(unittest.TestCase):
             _os.unlink(path)
 
 
+    def test_per_track_key(self):
+        import tempfile, os as _os, midi
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            melodic = self.scale([57, 59, 60, 62, 64, 65, 67, 69], [57, 60, 64])
+            drums = [(i * 0.5, 0.2, 42, 80) for i in range(16)]
+            midi.write_smf(path, 85, [
+                {"name": "Lead", "channel": 0, "notes": melodic},
+                {"name": "Hats", "channel": 9, "notes": drums},
+            ])
+            out = midi_read.analyze(path)
+            lead = next(t for t in out["tracks"] if t["name"] == "Lead")
+            hats = next(t for t in out["tracks"] if t["name"] == "Hats")
+            self.assertEqual(lead["key_guess"], "Am")
+            self.assertNotIn("key_guess", hats)  # one pitch class: no guess
+        finally:
+            _os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()
