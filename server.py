@@ -499,6 +499,21 @@ def _do_import(path):
     return clicked, buttons
 
 
+def _import_readback():
+    """Post-import verification: what tracks does Logic actually show?
+
+    Returns a result suffix; never raises (Logic may be busy right after an
+    import — the caller still deserves the import result)."""
+    try:
+        tracks = logic_ctl.list_tracks()
+    except Exception as e:
+        return " (verification readback unavailable: %s)" % str(e)[:120]
+    if not tracks:
+        return " WARNING: readback shows no tracks — verify in Logic before proceeding."
+    return " Project now shows %d track(s): %s." % (
+        len(tracks), ", ".join(t["name"] for t in tracks[:12]))
+
+
 def handle_tool(name, args):
     if name == "compose_midi":
         path, size = _do_compose(args)
@@ -513,7 +528,7 @@ def handle_tool(name, args):
         msg = "Import sequence sent for %s." % path
         if clicked:
             msg += " Dialog appeared (buttons: %s); clicked '%s'." % (buttons, clicked)
-        return msg
+        return msg + _import_readback()
 
     if name == "compose_and_import":
         path, size = _do_compose(args)
@@ -522,7 +537,7 @@ def handle_tool(name, args):
         msg = "Composed %s (%d bytes) and sent import sequence.%s" % (path, size, warn)
         if clicked:
             msg += " Dialog appeared (buttons: %s); clicked '%s'." % (buttons, clicked)
-        return msg
+        return msg + _import_readback()
 
     if name == "open_midi_as_project":
         path = os.path.expanduser(args["path"])
@@ -649,7 +664,7 @@ def serve():
                             "protocolVersion", "2024-11-05"
                         ),
                         "capabilities": {"tools": {}},
-                        "serverInfo": {"name": "rubin", "version": "1.2.0"},
+                        "serverInfo": {"name": "rubin", "version": "1.3.0"},
                     },
                 )
             elif method == "notifications/initialized":
