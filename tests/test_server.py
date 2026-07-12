@@ -165,5 +165,22 @@ class TestEntrances(unittest.TestCase):
             os.unlink(path)
 
 
+class TestDemoFlag(unittest.TestCase):
+    def test_demo_writes_clean_file_to_given_path(self):
+        import midi_read
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            p = subprocess.run(
+                [sys.executable, SERVER, "--demo", "--write-only", path],
+                capture_output=True, text=True, timeout=60)
+            self.assertEqual(p.returncode, 0)
+            text = midi_read.describe(path)
+            self.assertIn("Am", text)
+            self.assertNotIn("WARNING", text)
+        finally:
+            os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()

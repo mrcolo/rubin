@@ -46,26 +46,33 @@ def _plugin_of(patch_dir, needles):
     return any(n.encode() in blob for n in needles)
 
 
+def _search(entries, query, category, limit, extra=None):
+    """Shared name/category substring filter over (name, category, *rest)."""
+    q = (query or "").lower()
+    cat = (category or "").lower()
+    hits = []
+    for entry in entries:
+        name, entry_cat = entry[0], entry[1]
+        if q and q not in name.lower():
+            continue
+        if cat and cat not in entry_cat.lower():
+            continue
+        if extra and not extra(entry):
+            continue
+        hits.append({"name": name, "category": entry_cat})
+        if len(hits) >= max(1, int(limit)):
+            break
+    return hits
+
+
 def find_patches(query=None, plugin=None, category=None, limit=25):
     """Search factory patches. All filters are case-insensitive substrings.
 
     `plugin` greps each candidate's #Root.cst (e.g. 'Alchemy'), so combine it
     with query/category filters when possible to keep it fast.
     """
-    q = (query or "").lower()
-    cat = (category or "").lower()
-    hits = []
-    for name, patch_cat, path in _build_index():
-        if q and q not in name.lower():
-            continue
-        if cat and cat not in patch_cat.lower():
-            continue
-        if plugin and not _plugin_of(path, [plugin]):
-            continue
-        hits.append({"name": name, "category": patch_cat})
-        if len(hits) >= max(1, int(limit)):
-            break
-    return hits
+    extra = (lambda e: _plugin_of(e[2], [plugin])) if plugin else None
+    return _search(_build_index(), query, category, limit, extra)
 
 
 CST_ROOTS = [
@@ -94,23 +101,10 @@ def _build_cst_index():
 
 def find_channel_strips(query=None, category=None, limit=25):
     """Search factory channel-strip settings (.cst) — complete FX chains
-    (EQ, compression, sends) loadable from Logic's Library by name.
-
-    `category` filters the path, e.g. 'Track/04 Bass Guitar', 'Bus',
-    'Instrument'. Case-insensitive substrings.
+    (EQ, compression, sends). Discovery only: load via the channel strip's
+    Setting menu. `category` e.g. 'Track/04 Bass Guitar', 'Bus'.
     """
-    q = (query or "").lower()
-    cat = (category or "").lower()
-    hits = []
-    for name, strip_cat in _build_cst_index():
-        if q and q not in name.lower():
-            continue
-        if cat and cat not in strip_cat.lower():
-            continue
-        hits.append({"name": name, "category": strip_cat})
-        if len(hits) >= max(1, int(limit)):
-            break
-    return hits
+    return _search(_build_cst_index(), query, category, limit)
 
 
 SURGE_ROOTS = [
@@ -149,15 +143,4 @@ def find_surge_presets(query=None, category=None, limit=25):
     Logic's Library. Categories mirror Surge's bank layout (Basses, Leads,
     Pads, Keys...).
     """
-    q = (query or "").lower()
-    cat = (category or "").lower()
-    hits = []
-    for name, preset_cat in _build_surge_index():
-        if q and q not in name.lower():
-            continue
-        if cat and cat not in preset_cat.lower():
-            continue
-        hits.append({"name": name, "category": preset_cat})
-        if len(hits) >= max(1, int(limit)):
-            break
-    return hits
+    return _search(_build_surge_index(), query, category, limit)

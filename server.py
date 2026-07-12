@@ -714,6 +714,9 @@ def main():
 
         write_only = "--write-only" in sys.argv
         args = demo_beat.weeknd_beat()
+        extra = [a for a in sys.argv[2:] if not a.startswith("--")]
+        if extra:
+            args["path"] = extra[0]
         path, size = _do_compose(args)
         print("Composed %s (%d bytes)" % (path, size))
         if not write_only:
