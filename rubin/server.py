@@ -633,30 +633,17 @@ def handle_tool(name, args):
         return json.dumps(hits)
 
     if name == "load_patch":
-        n_windows = logic_ctl.window_count()
-        multi = ("" if n_windows <= 1 else
-                 " NOTE: %d project windows are open — patch loading reliably "
-                 "no-ops in this state (verified live: AX selection, single- "
-                 "and double-clicks all fail); close extra windows first."
-                 % n_windows)
-        try:
-            before = {(t["name"], t["patch"]) for t in logic_ctl.list_tracks()}
-        except Exception:
-            before = None
         loaded = logic_ctl.load_patch(args["query"])
-        if before is not None:
-            try:
-                after = {(t["name"], t["patch"]) for t in logic_ctl.list_tracks()}
-                if after == before:
-                    return (
-                        "FAILED: Library row '%s' was clicked but NO track header "
-                        "changed — the patch did not apply. Likely causes: the "
-                        "intended track is not actually selected, or the patch "
-                        "needs Sound Library content that isn't installed. Verify "
-                        "in Logic and retry." % loaded) + multi
-            except Exception:
-                pass
-        return "Loaded patch '%s' on the selected track." % loaded + multi
+        try:
+            strip = logic_ctl.selected_strip_name()
+        except Exception as e:
+            return ("Loaded patch '%s' (clicked its Library row), but the strip "
+                    "readback was unavailable (%s) — verify in Logic." % (loaded, e))
+        if loaded and strip and loaded.lower() in strip.lower():
+            return "VERIFIED: patch '%s' is on the selected track's channel strip." % strip
+        return ("FAILED: clicked Library row '%s' but the selected track's channel "
+                "strip reads '%s'. The track selection may be wrong — use "
+                "select_track and retry; verify by ear/eye in Logic." % (loaded, strip))
 
     if name == "list_tracks":
         return json.dumps(logic_ctl.list_tracks())

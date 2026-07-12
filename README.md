@@ -170,10 +170,10 @@ python3 server.py --demo --write-only   # just write the .mid
   not silent.
 - Logic auto-renames a track to its patch name after `load_patch` unless the
   track was named manually first.
-- Library patch loading silently no-ops when multiple project windows are
-  open (confirmed live: AX row selection, real clicks, and double-clicks all
-  fail; the same code works single-window). `load_patch` warns about extra
-  windows, verifies via header readback, and reports FAILED instead of
-  pretending. Close extra project windows before loading patches.
+- Track-header patch labels can sit in an off-screen column and read stale —
+  header text is NOT a reliable patch readback (this once produced a false
+  "loading is broken" diagnosis). The selected track's channel-strip name in
+  the inspector is ground truth; `load_patch` verifies against it and returns
+  VERIFIED or FAILED accordingly.
 - Tested on Logic Pro X 10.x/11 ("Logic Pro X.app" and "Logic Pro.app" are
   both handled), macOS 14+.

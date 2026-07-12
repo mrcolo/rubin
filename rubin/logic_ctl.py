@@ -287,49 +287,30 @@ end timeout
 
 
 def select_track(index):
-    """Select track `index` (1-based) by clicking its header row."""
+    """Select track `index` (1-based) by keyboard walk: Up to the top, then
+    Down. Header clicks proved unreliable (columns can sit off-screen and
+    click targets drift); arrow keys always operate on the real selection."""
     index = int(index)
-    fields = _track_rows()
-    if not fields:
-        raise LogicError("no track headers visible")
-    xs = sorted({x for x, _, _ in fields})
-    # prefer an on-screen column: negative-x fields can sit outside the
-    # window (observed live), and clicking there silently selects nothing
-    visible = [x for x in xs if x > 0] or xs
-    col = sorted((f for f in fields if f[0] == visible[0]), key=lambda f: f[1])
-    if not 1 <= index <= len(col):
-        raise LogicError("track index %d out of range (project has %d)" % (index, len(col)))
-    x, y, _ = col[index - 1]
+    try:
+        n_tracks = len({y for _x, y, _d in _track_rows()}) or 12
+    except LogicError:
+        n_tracks = 12
+    if not 1 <= index <= max(n_tracks, 1):
+        raise LogicError("track index %d out of range (project has %d)" % (index, n_tracks))
+    ups = "\n".join(["        key code 126\n        delay 0.05"] * (n_tracks + 2))
+    downs = "\n".join(["        key code 125\n        delay 0.08"] * (index - 1))
     script = '''
 tell application "%s" to activate
 delay 0.4
 tell application "System Events"
     tell process "%s"
         set frontmost to true
-        click at {%d, %d}
+%s
+%s
     end tell
 end tell
-''' % (app_name(), process_name(), x + 5, y + 9)
-    osa(script)
-
-
-def _library_checkbox_value():
-    """Read the Library toolbar toggle (1 = open). Returns int or None.
-
-    The toggle lives one group below the window in the AX tree.
-    """
-    script = '''
-tell application "System Events"
-    tell process "%s"
-        try
-            return value of (checkboxes of UI elements of window 1 whose name is "Library") as string
-        end try
-        return ""
-    end tell
-end tell
-''' % process_name()
-    out = osa(script)
-    return int(out) if out.isdigit() else None
+''' % (app_name(), process_name(), ups, downs)
+    osa(script, timeout=120)
 
 
 _lib_container = None
@@ -536,6 +517,42 @@ end tell
 
     _time.sleep(1.0)
     return find_dialog_buttons()
+
+
+_strip_container = None
+
+
+def selected_strip_name():
+    """Ground truth for 'what patch is on the selected track': the channel
+    strip's layout-item name in the inspector. Track-header text can sit in
+    an off-screen column and lie; the strip cannot."""
+    global _strip_container
+    if not _strip_container:
+        _strip_container = _find_bounded_container(
+            'if role of el is "AXLayoutItem" then\n'
+            '                        if (description of el) is "Stereo Out" '
+            'then return "yes"\n'
+            '                    end if'
+        )
+        if not _strip_container:
+            raise LogicError("inspector channel strip not found - open the inspector (I)")
+    script = '''
+tell application "System Events" to tell process "%s"
+    with timeout of 30 seconds
+        set els to entire contents of (%s)
+        repeat with el in els
+            try
+                if role of el is "AXLayoutItem" then
+                    set d to description of el
+                    if d is not missing value and d is not "Stereo Out" then return d
+                end if
+            end try
+        end repeat
+        return ""
+    end timeout
+end tell
+''' % (process_name(), _strip_container)
+    return osa(script, timeout=45)
 
 
 _TRANSPORT_KEYS = {
