@@ -290,6 +290,19 @@ TOOLS = [
         },
     },
     {
+        "name": "catalog_samples",
+        "description": (
+            "Scan a folder of audio samples and report each one's pitch, key, and "
+            "kind (pitched / sub / noise) via basic-pitch — so you can pick samples "
+            "that fit a track's key and know which are tonal vs. texture. Cached."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"folder": {"type": "string", "description": "Folder of audio files"}},
+            "required": ["folder"],
+        },
+    },
+    {
         "name": "list_transcriptions",
         "description": "List cached audio->MIDI transcriptions, optionally filtered by label/source substring.",
         "inputSchema": {
@@ -621,6 +634,9 @@ def handle_tool(name, args):
         entry = transcribe_mod.transcribe(args["path"], label=args.get("label"))
         analysis = midi_read.analyze(entry["midi"])
         return json.dumps({"cache": entry, "analysis": analysis})
+
+    if name == "catalog_samples":
+        return json.dumps(transcribe_mod.catalog_folder(args["folder"]))
 
     if name == "list_transcriptions":
         return json.dumps(transcribe_mod.list_transcriptions(args.get("query")))

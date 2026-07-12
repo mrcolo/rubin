@@ -113,6 +113,44 @@ def transcribe(audio_path, label=None):
     return entry
 
 
+AUDIO_EXTS_SCAN = (".wav", ".aif", ".aiff", ".mp3", ".flac", ".m4a", ".ogg")
+
+
+def catalog_folder(folder):
+    """Transcribe every audio file in `folder` and report pitch content, so
+    samples can be matched to a track's key. Cached, so re-scans are cheap.
+    Returns [{file, key, notes, low, high, kind}] — kind is 'pitched',
+    'sub' (single low note), or 'noise' (no clear pitch, e.g. a growl/crash)."""
+    from rubin import midi_read
+
+    folder = os.path.expanduser(folder)
+    if not os.path.isdir(folder):
+        raise ValueError("no such folder: %s" % folder)
+    out = []
+    for name in sorted(os.listdir(folder)):
+        if not name.lower().endswith(AUDIO_EXTS_SCAN):
+            continue
+        path = os.path.join(folder, name)
+        try:
+            entry = transcribe(path)
+            a = midi_read.analyze(entry["midi"])
+            tr = a["tracks"][0] if a["tracks"] else {}
+            n = tr.get("notes", 0)
+            low = tr.get("low_pitch")
+            if n == 0:
+                kind = "noise"
+            elif n == 1 and low is not None and low < 40:
+                kind = "sub"
+            else:
+                kind = "pitched"
+            out.append({"file": name, "key": a.get("key_guess"),
+                        "notes": n, "low": tr.get("low"), "high": tr.get("high"),
+                        "kind": kind})
+        except Exception as e:
+            out.append({"file": name, "error": str(e)[:120]})
+    return out
+
+
 def list_transcriptions(query=None):
     """List cached transcriptions, optionally filtered by label/source substring."""
     q = (query or "").lower()
