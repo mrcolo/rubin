@@ -4,6 +4,14 @@ A minimal, dependency-free MCP server that turns Logic Pro into an
 AI-playable instrument: compose MIDI, load any factory patch (Alchemy
 included), and drive the transport.
 
+![A rubin-composed 40-bar arrangement playing in Logic Pro — five tracks
+composed as MIDI, Alchemy patches loaded via the Library, piano roll showing
+the lead hook](docs/rubin-in-logic.png)
+
+*Everything in this screenshot was placed by rubin: the five tracks and
+their regions (composed as a Standard MIDI File), the Alchemy patches on
+each channel strip (loaded through the Library), tempo, and key.*
+
 ## Why it works
 
 UI-automation-first tools (clicking Logic's interface for every note) fail
