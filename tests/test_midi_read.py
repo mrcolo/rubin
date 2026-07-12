@@ -374,5 +374,21 @@ class TestDrumPatternChoice(unittest.TestCase):
         self.assertEqual(self.suggest_for(140), "trap")
 
 
+class TestStockProgression(unittest.TestCase):
+    def test_transposed_shapes(self):
+        self.assertEqual(midi_read._stock_progression("Am"), ["Am", "F", "C", "E"])
+        self.assertEqual(midi_read._stock_progression("F#m"), ["F#m", "D", "A", "C#"])
+        self.assertEqual(midi_read._stock_progression("C"), ["C", "G", "Am", "F"])
+        self.assertEqual(midi_read._stock_progression("Eb"), ["D#", "A#", "Cm", "G#"])
+
+    def test_every_output_is_composable(self):
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi
+        for key in ("Am", "F#m", "C", "Eb", "Bbm", None, "garbage"):
+            for chord in midi_read._stock_progression(key):
+                midi.chord_pitches(chord)  # must not raise
+
+
 if __name__ == "__main__":
     unittest.main()

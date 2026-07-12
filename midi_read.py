@@ -378,6 +378,25 @@ def guess_chords(tracks, beats_per_bar=4, max_bars=64):
     return chords
 
 
+def _stock_progression(key):
+    """A dependable progression transposed into `key`:
+    minor -> i-VI-III-V (Am-F-C-E shape), major -> I-V-vi-IV (C-G-Am-F)."""
+    flats = {"Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#", "Cb": "B"}
+    minor = bool(key) and key.endswith("m")
+    root_name = (key[:-1] if minor else key) if key else "A"
+    root_name = flats.get(root_name, root_name)
+    if root_name not in NOTE_NAMES:
+        root_name, minor = "A", True  # unrecognized: safe dark default
+    root = NOTE_NAMES.index(root_name)
+    if not key:
+        minor = True
+    if minor:
+        steps = [(0, "m"), (8, ""), (3, ""), (7, "")]
+    else:
+        steps = [(0, ""), (7, ""), (9, "m"), (5, "")]
+    return [NOTE_NAMES[(root + iv) % 12] + q for iv, q in steps]
+
+
 def suggest_accompaniment(path):
     """Ready-to-use compose_midi arguments that complement this file:
     same tempo/key/feel, progression from detected chords, and only the
@@ -409,11 +428,9 @@ def suggest_accompaniment(path):
         bars_per_chord = max(1, round(sum(runs) / len(runs)))
         notes.append("roots from the source; qualities assumed from key %s" % key)
     else:
-        chords = (["Am", "F", "C", "E"] if (key or "m").endswith("m")
-                  else ["C", "G", "Am", "F"])
-        if key and key != "Am" and key != "C":
-            notes.append("chords ambiguous in source; using a stock "
-                         "progression — transpose to %s" % key)
+        chords = _stock_progression(key)
+        notes.append("chords ambiguous in source; using a stock %s progression (%s)"
+                     % (key or "A minor", "-".join(chords)))
         bars_per_chord = 2
 
     # which registers does the source occupy?
