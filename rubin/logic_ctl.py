@@ -56,6 +56,16 @@ def activate():
     osa('tell application "%s" to activate\ndelay 0.5' % app_name())
 
 
+def window_count():
+    """Number of Logic windows. Patch loading is unreliable above 1."""
+    try:
+        return int(osa(
+            'tell application "System Events" to tell process "%s" to count windows'
+            % process_name(), timeout=15))
+    except (LogicError, ValueError):
+        return -1
+
+
 def front_window_title():
     return osa(
         'tell application "System Events" to tell process "%s" to '
