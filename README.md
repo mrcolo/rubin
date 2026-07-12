@@ -34,6 +34,7 @@ silently and read garbage state. rubin flips the approach:
 | `select_track` | Select track N (1-based) |
 | `load_patch` | Load a Library patch onto the selected track; returns the loaded name |
 | `list_tracks` | Read back `[{name, patch}]` from the open project |
+| `save_project` | Save the project (Cmd+S); reports the sheet if the project is unnamed |
 | `transport` | play / stop / record / go_to_beginning |
 | `answer_dialog` | Click through a Logic sheet/dialog (e.g. tempo-import prompt) |
 | `logic_status` | Is Logic running + front window title |

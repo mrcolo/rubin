@@ -214,6 +214,15 @@ TOOLS = [
         },
     },
     {
+        "name": "save_project",
+        "description": (
+            "Save the open project (Cmd+S). If a Save sheet appears (never-saved "
+            "project), its buttons are reported — the user should name it, or you "
+            "can proceed with answer_dialog."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "logic_status",
         "description": "Report whether Logic Pro is running and the front window title.",
         "inputSchema": {"type": "object", "properties": {}},
@@ -325,6 +334,12 @@ def handle_tool(name, args):
         prefer = tuple(args.get("prefer") or ("Import Tempo", "Import", "Yes", "OK"))
         clicked = logic_ctl.answer_dialog(prefer)
         return "Clicked '%s'" % clicked if clicked else "No dialog present"
+
+    if name == "save_project":
+        buttons = logic_ctl.save_project()
+        if buttons:
+            return "Save sheet appeared with buttons %s — project may be unnamed" % buttons
+        return "Saved"
 
     if name == "logic_status":
         running = logic_ctl.logic_running()

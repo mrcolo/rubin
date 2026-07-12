@@ -38,7 +38,7 @@ class TestProtocol(unittest.TestCase):
             names,
             {"compose_midi", "import_midi", "compose_and_import", "open_midi_as_project",
              "transport", "select_track", "find_patches", "load_patch", "list_tracks",
-             "answer_dialog", "logic_status"},
+             "answer_dialog", "save_project", "logic_status"},
         )
 
     def test_compose_call(self):

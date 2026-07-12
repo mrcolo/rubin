@@ -246,31 +246,40 @@ tell application "System Events"
         delay 0.2
         key code 36 -- run search
         delay 1.5
-        -- collect result rows; prefer an exact name match, else take the first
+        -- collect result rows; retry until names extract (list may still be
+        -- populating), prefer an exact name match, else take the first
         set theRow to missing value
         set firstRow to missing value
-        with timeout of 60 seconds
-            set allEls2 to entire contents of window 1
-            repeat with el in allEls2
-                try
-                    if role of el is "AXRow" then
-                        set p to position of el
-                        if (item 1 of p) < 300 and (item 2 of p) > (sfY + 10) then
-                            if firstRow is missing value then set firstRow to el
-                            try
-                                set rn to value of static text 1 of UI element 1 of el
-                                ignoring case
-                                    if rn is "%(query)s" then
-                                        set theRow to el
-                                        exit repeat
-                                    end if
-                                end ignoring
-                            end try
+        repeat with attempt from 1 to 3
+            set firstRow to missing value
+            set namedCount to 0
+            with timeout of 60 seconds
+                set allEls2 to entire contents of window 1
+                repeat with el in allEls2
+                    try
+                        if role of el is "AXRow" then
+                            set p to position of el
+                            if (item 1 of p) < 300 and (item 2 of p) > (sfY + 10) then
+                                if firstRow is missing value then set firstRow to el
+                                try
+                                    set rn to value of static text 1 of UI element 1 of el
+                                    set namedCount to namedCount + 1
+                                    ignoring case
+                                        if rn is "%(query)s" then
+                                            set theRow to el
+                                            exit repeat
+                                        end if
+                                    end ignoring
+                                end try
+                            end if
                         end if
-                    end if
-                end try
-            end repeat
-        end timeout
+                    end try
+                end repeat
+            end timeout
+            if theRow is not missing value then exit repeat
+            if namedCount > 0 and attempt > 1 then exit repeat
+            delay 0.8
+        end repeat
         if theRow is missing value then set theRow to firstRow
         if theRow is missing value then error "no Library results for '%(query)s'"
         set patchName to ""
@@ -351,6 +360,26 @@ end timeout
         name = right_col[i][2] if i < len(right_col) else patch
         tracks.append({"name": name, "patch": patch})
     return tracks
+
+
+def save_project():
+    """Cmd+S. For a never-saved project a Save sheet appears — reported back
+    so the caller can fill it via answer_dialog or leave it to the user."""
+    script = '''
+tell application "%s" to activate
+delay 0.4
+tell application "System Events"
+    tell process "%s"
+        set frontmost to true
+        keystroke "s" using {command down}
+    end tell
+end tell
+''' % (app_name(), process_name())
+    osa(script)
+    import time as _time
+
+    _time.sleep(1.0)
+    return find_dialog_buttons()
 
 
 _TRANSPORT_KEYS = {
