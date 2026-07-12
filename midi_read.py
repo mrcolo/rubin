@@ -106,9 +106,9 @@ def analyze(path):
     if all_notes and max(n[0] + n[1] for n in all_notes) >= 32:
         # only meaningful past ~8 bars; short clips are one window anyway
         out["density_curve"] = density_curve(tracks)
-    warns = register_warnings(tracks)
+    warns = arrangement_warnings(tracks)
     if warns:
-        out["register_warnings"] = warns
+        out["warnings"] = warns
     for t in tracks:
         notes = t["notes"]
         if not notes:
@@ -219,9 +219,10 @@ def density_curve(tracks, beats_per_bar=4, window_bars=4):
     return curve
 
 
-def register_warnings(tracks):
+def arrangement_warnings(tracks):
     """Flag arrangement problems the ear would find: parts crowding the
-    same register, and multiple parts fighting over the low end."""
+    same register, multiple parts fighting over the low end, and
+    robotically flat velocities."""
     named = []
     for i, t in enumerate(tracks):
         if len(t["notes"]) >= 8:
@@ -250,4 +251,14 @@ def register_warnings(tracks):
         warnings.append(
             "multiple parts live below C2 (%s) — only one should own the low end"
             % ", ".join("'%s'" % n for n in low_owners))
+    for i, t in enumerate(tracks):
+        vels = [n[3] for n in t["notes"]]
+        if len(vels) < 12:
+            continue
+        mean = sum(vels) / len(vels)
+        sd = (sum((v - mean) ** 2 for v in vels) / len(vels)) ** 0.5
+        if sd < 2.0:
+            warnings.append(
+                "'%s' has flat velocities (stddev %.1f) — humanize with "
+                "accents and ghost notes" % (t["name"] or "track %d" % (i + 1), sd))
     return warnings

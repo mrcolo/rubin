@@ -179,20 +179,35 @@ class TestDensityCurve(unittest.TestCase):
 class TestRegisterWarnings(unittest.TestCase):
     def mk(self, name, lo, hi):
         return {"name": name,
-                "notes": [(i, 0.5, lo + i % (hi - lo), 90) for i in range(16)]}
+                "notes": [(i, 0.5, lo + i % (hi - lo), 90 + ((i * 7) % 9) - 4)
+                          for i in range(16)]}
 
     def test_clash_flagged(self):
-        w = midi_read.register_warnings([self.mk("Pad", 60, 72), self.mk("Keys", 60, 72)])
-        self.assertEqual(len(w), 1)
-        self.assertIn("Pad", w[0])
+        w = midi_read.arrangement_warnings([self.mk("Pad", 60, 72), self.mk("Keys", 60, 72)])
+        register = [x for x in w if "crowd the same register" in x]
+        self.assertEqual(len(register), 1)
+        self.assertIn("Pad", register[0])
 
     def test_separated_clean(self):
         self.assertEqual(
-            midi_read.register_warnings([self.mk("Bass", 30, 44), self.mk("Lead", 70, 82)]), [])
+            midi_read.arrangement_warnings([self.mk("Bass", 30, 44), self.mk("Lead", 70, 82)]), [])
 
     def test_low_end_conflict(self):
-        w = midi_read.register_warnings([self.mk("808", 28, 40), self.mk("Sub", 30, 42)])
+        w = midi_read.arrangement_warnings([self.mk("808", 28, 40), self.mk("Sub", 30, 42)])
         self.assertTrue(any("low end" in x for x in w))
+
+
+class TestVelocityFlatness(unittest.TestCase):
+    def test_flat_flagged(self):
+        flat = {"name": "Robo", "notes": [(i, 0.5, 60 + i % 24, 100) for i in range(16)]}
+        w = midi_read.arrangement_warnings([flat])
+        self.assertTrue(any("flat velocities" in x for x in w))
+
+    def test_humanized_clean(self):
+        human = {"name": "Feel", "notes":
+                 [(i, 0.5, 60 + i % 24, 90 + ((i * 7) % 9) - 4) for i in range(16)]}
+        w = midi_read.arrangement_warnings([human])
+        self.assertFalse(any("flat velocities" in x for x in w))
 
 
 if __name__ == "__main__":
