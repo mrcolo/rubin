@@ -167,6 +167,10 @@ python3 server.py --demo --write-only   # just write the .mid
   the arrange window (a path's letters fire as key commands — `r` starts a
   recording — which once damaged a live session). Drag audio from Finder for
   reliability.
+- `import_midi` and `import_audio` both confirm a file panel is frontmost
+  before typing a path, and abort with Escape otherwise — they never leak a
+  path into the arrange window. `import_midi`'s happy path is live-verified;
+  `import_audio` usually aborts (audio import is a Browser pane).
 
 
 - Patch loading, track selection, and import drive Logic's UI; they're

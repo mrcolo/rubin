@@ -97,7 +97,8 @@ tell application "System Events"
         set importMenu to menu 1 of menu item "Import" of menu 1 of menu bar item "File" of menu bar 1
         set midiItem to (first menu item of importMenu whose name begins with "MIDI")
         click midiItem
-        -- the picker is a window named "Import"; poll for it
+        -- poll for a confirmed file panel; NEVER keystroke a path otherwise
+        -- (a path's letters fire as key commands in the arrange window)
         set panel to missing value
         repeat 20 times
             delay 0.5
@@ -105,29 +106,32 @@ tell application "System Events"
                 set panel to window "Import"
                 exit repeat
             end try
+            try
+                if exists text field 1 of sheet 1 of window 1 then
+                    set panel to sheet 1 of window 1
+                    exit repeat
+                end if
+            end try
         end repeat
         if panel is missing value then
-            -- some configurations use a sheet instead; type into whatever is focused
-            delay 0.5
-        else
-            perform action "AXRaise" of panel
-            delay 0.3
+            key code 53 -- Escape: abort without typing
+            error "MIDI-import file panel did not appear - aborted without typing"
         end if
+        try
+            perform action "AXRaise" of panel
+        end try
+        delay 0.3
         keystroke "g" using {command down, shift down} -- Go To Folder
         delay 0.8
         keystroke "%(path)s"
         delay 0.5
         key code 36 -- confirm path
         delay 1.0
-        if panel is missing value then
+        try
+            click button "Import" of panel
+        on error
             key code 36
-        else
-            try
-                click button "Import" of panel
-            on error
-                key code 36
-            end try
-        end if
+        end try
         delay 1.5
     end tell
 end tell
