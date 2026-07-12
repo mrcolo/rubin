@@ -275,6 +275,26 @@ end tell
         "path": path.replace("\\", "\\\\").replace('"', '\\"')}, timeout=45)
 
 
+def project_state():
+    """Disambiguate the states that all looked like 'window_count 0' this far:
+    not_running / no_project (display may be asleep, or no doc open) /
+    project_open. Returns a dict a caller can branch on before acting."""
+    if not logic_running():
+        return {"state": "not_running", "windows": 0}
+    n = window_count()
+    if n < 1:
+        return {"state": "no_project",
+                "windows": n,
+                "hint": "no project window — the display may be asleep, or no "
+                        "document is open. UI tools (import, patches) need a "
+                        "project window; wake the screen / open a project."}
+    try:
+        title = front_window_title()
+    except LogicError:
+        title = None
+    return {"state": "project_open", "windows": n, "front_window": title}
+
+
 def reveal_in_finder(path):
     """Reveal a file or folder in Finder, selected and ready to drag. Safe:
     touches only Finder, never Logic's arrange window. This is the reliable
