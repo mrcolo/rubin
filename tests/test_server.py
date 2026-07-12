@@ -41,7 +41,7 @@ class TestProtocol(unittest.TestCase):
              "transport", "select_track", "find_patches", "load_patch", "list_tracks",
              "transcribe_audio", "list_transcriptions", "analyze_midi",
              "answer_dialog", "save_project", "list_plugins", "find_channel_strips",
-             "find_surge_presets", "describe_midi", "logic_status"},
+             "find_surge_presets", "describe_midi", "suggest_accompaniment", "logic_status"},
         )
 
     def test_compose_call(self):

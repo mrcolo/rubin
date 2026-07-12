@@ -280,5 +280,47 @@ class TestChordAbstention(unittest.TestCase):
             _os.unlink(path)
 
 
+class TestSuggestAccompaniment(unittest.TestCase):
+    def test_bassline_gets_no_second_bass(self):
+        import tempfile, os as _os, sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            midi.write_smf(path, 84, [{"name": "B", "channel": 0,
+                "notes": midi.progression_notes(["Am", "F", "C", "E"], style="bass")}],
+                key="Am", swing=62)
+            s = midi_read.suggest_accompaniment(path)
+            roles = [t["name"] for t in s["tracks"]]
+            self.assertNotIn("Bass", roles)
+            self.assertIn("Pad", roles)
+            self.assertEqual(s["key"], "Am")
+            self.assertEqual(s["swing"], 62)
+            self.assertEqual(s["tracks"][0]["progression"]["chords"][0], "Am")
+        finally:
+            _os.unlink(path)
+
+    def test_suggestion_composes_and_verifies(self):
+        import tempfile, os as _os, sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi, server
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            src_path = f.name
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            out_path = f.name
+        try:
+            midi.write_smf(src_path, 84, [{"name": "B", "channel": 0,
+                "notes": midi.progression_notes(["Am", "F"], style="bass")}], key="Am")
+            args = midi_read.suggest_accompaniment(src_path)
+            args["path"] = out_path
+            server._do_compose(args)
+            text = midi_read.describe(out_path)
+            self.assertNotIn("WARNING", text)
+        finally:
+            _os.unlink(src_path)
+            _os.unlink(out_path)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -374,3 +374,77 @@ def guess_chords(tracks, beats_per_bar=4, max_bars=64):
     while chords and chords[-1] is None:
         chords.pop()
     return chords
+
+
+def suggest_accompaniment(path):
+    """Ready-to-use compose_midi arguments that complement this file:
+    same tempo/key/feel, progression from detected chords, and only the
+    roles whose register the source doesn't already occupy."""
+    a = analyze(path)
+    notes = []
+    tempo = a["tempo"]
+    key = a.get("key_guess")
+
+    # progression: collapse per-bar chords to changes + bars per chord
+    chords_raw = [c for c in a.get("chords", []) if c]
+    prog, runs = [], []
+    for c in chords_raw:
+        if prog and c == prog[-1]:
+            runs[-1] += 1
+        else:
+            prog.append(c)
+            runs.append(1)
+    clean = [c for c in prog if not c.endswith("?")]
+    if prog and len(clean) == len(prog):
+        bars_per_chord = max(1, round(sum(runs) / len(runs)))
+        chords = prog
+        notes.append("progression taken from the source (%s)" % "-".join(chords))
+    elif prog and all(c.endswith("?") for c in prog):
+        # roots known (e.g. a bassline): assume diatonic quality from key
+        minor_root = key[:-1] if key and key.endswith("m") else None
+        chords = [c[:-1] + ("m" if minor_root and c[:-1] == minor_root else "")
+                  for c in prog]
+        bars_per_chord = max(1, round(sum(runs) / len(runs)))
+        notes.append("roots from the source; qualities assumed from key %s" % key)
+    else:
+        chords = (["Am", "F", "C", "E"] if (key or "m").endswith("m")
+                  else ["C", "G", "Am", "F"])
+        if key and key != "Am" and key != "C":
+            notes.append("chords ambiguous in source; using a stock "
+                         "progression — transpose to %s" % key)
+        bars_per_chord = 2
+
+    # which registers does the source occupy?
+    low = mid = high = False
+    for t in a["tracks"]:
+        lo = 12 * (int(t["low"][-1]) + 2)  # crude octave read
+        hi = 12 * (int(t["high"][-1]) + 2)
+        low = low or lo < 48
+        mid = mid or (48 <= lo <= 71 or 48 <= hi <= 71)
+        high = high or hi >= 72
+    tracks = []
+    if not low:
+        tracks.append({"name": "Bass", "channel": 0, "program": 38,
+                       "progression": {"chords": chords, "style": "bass",
+                                       "bars_per_chord": bars_per_chord}})
+    if not mid:
+        tracks.append({"name": "Pad", "channel": 1, "program": 89,
+                       "progression": {"chords": chords,
+                                       "bars_per_chord": bars_per_chord}})
+    if not high:
+        tracks.append({"name": "Arp", "channel": 2, "program": 81,
+                       "progression": {"chords": chords, "style": "arp",
+                                       "bars_per_chord": bars_per_chord}})
+    tracks.append({"name": "Drums", "channel": 9,
+                   "drums": {"pattern": "half_time",
+                             "bars": max(8, len(chords) * bars_per_chord)}})
+    out = {"tempo": tempo, "tracks": tracks}
+    if key:
+        out["key"] = key
+    swings = [t["swing_guess"] for t in a["tracks"]
+              if t.get("swing_guess", 50) > 52]
+    if swings:
+        out["swing"] = max(swings)
+        notes.append("matched the source's swing (%d%%)" % out["swing"])
+    out["suggestion_notes"] = notes
+    return out

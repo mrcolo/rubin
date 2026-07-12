@@ -277,6 +277,21 @@ TOOLS = [
         },
     },
     {
+        "name": "suggest_accompaniment",
+        "description": (
+            "Analyze a .mid (e.g. a transcription) and return ready-to-use "
+            "compose_midi arguments that complement it: matching tempo, key, "
+            "swing, a progression from its detected chords, and only the roles "
+            "(bass/pad/arp/drums) whose register the source doesn't occupy. "
+            "Feed the result straight back into compose_midi, then import both."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "MIDI file path"}},
+            "required": ["path"],
+        },
+    },
+    {
         "name": "find_patches",
         "description": (
             "Search Logic's factory patch index on disk. Returns exact patch names "
@@ -529,6 +544,12 @@ def handle_tool(name, args):
         if not os.path.isfile(path):
             raise ValueError("no such file: %s" % path)
         return midi_read.describe(path)
+
+    if name == "suggest_accompaniment":
+        path = os.path.expanduser(args["path"])
+        if not os.path.isfile(path):
+            raise ValueError("no such file: %s" % path)
+        return json.dumps(midi_read.suggest_accompaniment(path))
 
     if name == "find_patches":
         hits = patches.find_patches(
