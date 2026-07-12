@@ -633,6 +633,12 @@ def handle_tool(name, args):
         return json.dumps(hits)
 
     if name == "load_patch":
+        n_windows = logic_ctl.window_count()
+        multi = ("" if n_windows <= 1 else
+                 " NOTE: %d project windows are open — patch loading reliably "
+                 "no-ops in this state (verified live: AX selection, single- "
+                 "and double-clicks all fail); close extra windows first."
+                 % n_windows)
         try:
             before = {(t["name"], t["patch"]) for t in logic_ctl.list_tracks()}
         except Exception:
@@ -643,14 +649,14 @@ def handle_tool(name, args):
                 after = {(t["name"], t["patch"]) for t in logic_ctl.list_tracks()}
                 if after == before:
                     return (
-                        "Library row '%s' was clicked but NO track header changed — "
-                        "the patch did not apply. Likely causes: the intended track "
-                        "is not actually selected, or the patch needs Sound Library "
-                        "content that isn't installed. Verify selection in Logic and "
-                        "retry." % loaded)
+                        "FAILED: Library row '%s' was clicked but NO track header "
+                        "changed — the patch did not apply. Likely causes: the "
+                        "intended track is not actually selected, or the patch "
+                        "needs Sound Library content that isn't installed. Verify "
+                        "in Logic and retry." % loaded) + multi
             except Exception:
                 pass
-        return "Loaded patch '%s' on the selected track" % loaded
+        return "Loaded patch '%s' on the selected track." % loaded + multi
 
     if name == "list_tracks":
         return json.dumps(logic_ctl.list_tracks())
