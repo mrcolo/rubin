@@ -239,5 +239,29 @@ class TestDescribe(unittest.TestCase):
             _os.unlink(path)
 
 
+class TestGuessChords(unittest.TestCase):
+    def test_demo_progression(self):
+        import tempfile, os as _os, sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import demo_beat, server
+        spec = demo_beat.weeknd_beat()
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            spec["path"] = f.name
+        try:
+            server._do_compose(spec)
+            _p, _t, tracks = midi_read.parse_smf(open(spec["path"], "rb").read())
+            self.assertEqual(midi_read.guess_chords(tracks),
+                             ["Am", "Am", "F", "F", "C", "C", "E", "E"])
+        finally:
+            _os.unlink(spec["path"])
+
+    def test_empty(self):
+        self.assertEqual(midi_read.guess_chords([]), [])
+
+    def test_drums_ignored(self):
+        drums = {"channel": 9, "notes": [(i * 0.5, 0.2, 42, 80) for i in range(16)]}
+        self.assertEqual(midi_read.guess_chords([drums]), [])
+
+
 if __name__ == "__main__":
     unittest.main()

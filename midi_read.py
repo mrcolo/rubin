@@ -109,6 +109,9 @@ def analyze(path):
     if all_notes and max(n[0] + n[1] for n in all_notes) >= 32:
         # only meaningful past ~8 bars; short clips are one window anyway
         out["density_curve"] = density_curve(tracks)
+    chords = guess_chords(tracks)
+    if any(c and c != "?" for c in chords):
+        out["chords"] = chords
     warns = arrangement_warnings(tracks)
     if warns:
         out["warnings"] = warns
@@ -283,6 +286,14 @@ def describe(path):
     swings = {t["swing_guess"] for t in tracks if "swing_guess" in t and t["swing_guess"] > 52}
     if swings:
         bits.append("swung feel (~%d%%)" % max(swings))
+    chords = a.get("chords")
+    if chords:
+        seq, last = [], object()
+        for c in chords:
+            if c != last:
+                seq.append(c or "-")
+                last = c
+        bits.append("progression %s" % "-".join(seq[:12]))
     curve = a.get("density_curve")
     if curve and len(curve) >= 3:
         vals = [c["notes_per_beat"] for c in curve]
@@ -298,3 +309,53 @@ def describe(path):
     for w in a.get("warnings", []):
         text += " WARNING: %s." % w
     return text
+
+
+_CHORD_TEMPLATES = [
+    ("", (0, 4, 7)),        # major
+    ("m", (0, 3, 7)),       # minor
+    ("7", (0, 4, 7, 10)),   # dominant 7th
+    ("maj7", (0, 4, 7, 11)),
+    ("m7", (0, 3, 7, 10)),
+]
+
+
+def guess_chords(tracks, beats_per_bar=4, max_bars=64):
+    """Per-bar chord names from all non-drum tracks (duration-weighted
+    pitch-class mass vs. triad/7th templates). '?' where nothing fits well,
+    None entries trimmed from the tail."""
+    notes = [n for t in tracks if t.get("channel") != 9 for n in t["notes"]]
+    if not notes:
+        return []
+    end = min(max(n[0] + n[1] for n in notes), beats_per_bar * max_bars)
+    chords = []
+    bar = 0
+    while bar * beats_per_bar < end:
+        lo, hi = bar * beats_per_bar, (bar + 1) * beats_per_bar
+        hist = [0.0] * 12
+        bass_pitch = None
+        for s, d, p, _v in notes:
+            s2, e2 = max(s, lo), min(s + d, hi)
+            if e2 > s2:
+                hist[p % 12] += e2 - s2
+                if bass_pitch is None or p < bass_pitch:
+                    bass_pitch = p
+        total = sum(hist)
+        if total == 0:
+            chords.append(None)
+            bar += 1
+            continue
+        best = ("?", 0.0)
+        for root in range(12):
+            for suffix, template in _CHORD_TEMPLATES:
+                mass = sum(hist[(root + iv) % 12] for iv in template)
+                score = mass / total
+                if bass_pitch is not None and bass_pitch % 12 == root:
+                    score += 0.05  # bass note on the root is strong evidence
+                if score > best[1]:
+                    best = (NOTE_NAMES[root] + suffix, score)
+        chords.append(best[0] if best[1] >= 0.65 else "?")
+        bar += 1
+    while chords and chords[-1] is None:
+        chords.pop()
+    return chords
