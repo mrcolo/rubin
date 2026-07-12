@@ -99,6 +99,21 @@ load_patch {query: "Drifting Away"}
   → Loaded patch 'Drifting Away' on the selected track
 ```
 
+## Genre starting points (stock Logic, index-verified)
+
+| Role | Patches (exact `load_patch` names) |
+|---|---|
+| Future-bass chord stabs | Massive Stack, Chicago Stack, Sparkle Chord (category `EDM Chord`) |
+| Vocal-chop feel | Breathy Vox, Starlight Vox, Rhythmic Vox |
+| Sub bass | Deep Sub Bass, Full Sub, Super Sub 808 Bass |
+| Wobble bass (CC1 = wobble) | Mega Wobble Bass, FM Wobble Bass, Sharp Wobble Bass |
+| Dark pads | Drifting Away (Alchemy) |
+| Trap/808 kits | Modern 808; dub: Dub Machine |
+| Punk/rock | SoCal+ kit, Hard Rock guitar, Punchy Bottom bass |
+
+rubin's CC automation maps onto these: `cc` 1 drives the wobble patches'
+filter, `cc` 11 fakes sidechain pump on stabs, bends do scoops and slides.
+
 ## Ears: audio in, MIDI out
 
 `transcribe_audio` turns any recording — a hummed melody, a guitar take, a
