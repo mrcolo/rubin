@@ -104,6 +104,8 @@ def analyze(path):
     all_notes = [n for t in tracks for n in t["notes"]]
     key, conf = guess_key(all_notes)
     if key:
+        flats = respell(key, True) in FLAT_KEYS
+        key = respell(key, flats)
         out["key_guess"] = key
         out["key_confidence"] = conf
     if all_notes and max(n[0] + n[1] for n in all_notes) >= 32:
@@ -111,7 +113,8 @@ def analyze(path):
         out["density_curve"] = density_curve(tracks)
     chords = guess_chords(tracks)
     if any(c and c != "?" for c in chords):
-        out["chords"] = chords
+        flats = out.get("key_guess") in FLAT_KEYS
+        out["chords"] = [respell(c, flats) if c else c for c in chords]
     warns = arrangement_warnings(tracks)
     if warns:
         out["warnings"] = warns
@@ -395,7 +398,8 @@ def _stock_progression(key):
         steps = [(0, "m"), (8, ""), (3, ""), (7, "")]
     else:
         steps = [(0, ""), (7, ""), (9, "m"), (5, "")]
-    return [NOTE_NAMES[(root + iv) % 12] + q for iv, q in steps]
+    flats = key in FLAT_KEYS if key else False
+    return [respell(NOTE_NAMES[(root + iv) % 12] + q, flats) for iv, q in steps]
 
 
 def suggest_accompaniment(path):
@@ -483,3 +487,19 @@ def suggest_accompaniment(path):
         notes.append("matched the source's swing (%d%%)" % out["swing"])
     out["suggestion_notes"] = notes
     return out
+
+
+_SHARP_TO_FLAT = {"C#": "Db", "D#": "Eb", "F#": "Gb", "G#": "Ab", "A#": "Bb"}
+# keys whose conventional spelling uses flats (majors + relative minors)
+FLAT_KEYS = {"F", "Bb", "Eb", "Ab", "Db", "Gb",
+             "Dm", "Gm", "Cm", "Fm", "Bbm", "Ebm"}
+
+
+def respell(name, prefer_flats):
+    """'A#m' -> 'Bbm' when the key context reads in flats."""
+    if not prefer_flats or not name:
+        return name
+    root = name[:2] if len(name) > 1 and name[1] == "#" else name[:1]
+    if root in _SHARP_TO_FLAT:
+        return _SHARP_TO_FLAT[root] + name[len(root):]
+    return name

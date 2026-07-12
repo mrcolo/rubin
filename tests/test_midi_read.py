@@ -379,7 +379,7 @@ class TestStockProgression(unittest.TestCase):
         self.assertEqual(midi_read._stock_progression("Am"), ["Am", "F", "C", "E"])
         self.assertEqual(midi_read._stock_progression("F#m"), ["F#m", "D", "A", "C#"])
         self.assertEqual(midi_read._stock_progression("C"), ["C", "G", "Am", "F"])
-        self.assertEqual(midi_read._stock_progression("Eb"), ["D#", "A#", "Cm", "G#"])
+        self.assertEqual(midi_read._stock_progression("Eb"), ["Eb", "Bb", "Cm", "Ab"])
 
     def test_every_output_is_composable(self):
         import sys as _sys, os as _os
@@ -411,6 +411,28 @@ class TestDrumAwareness(unittest.TestCase):
             self.assertEqual(a["tracks"][0]["channel"], 9)
         finally:
             _os.unlink(path)
+
+
+class TestEnharmonicSpelling(unittest.TestCase):
+    def test_flat_key_reads_in_flats(self):
+        import tempfile, os as _os, sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            midi.write_smf(path, 90, [{"channel": 1,
+                "notes": midi.progression_notes(["Bb", "Eb", "Gm", "F"])}], key="Bb")
+            a = midi_read.analyze(path)
+            self.assertEqual(a["key_guess"], "Bb")
+            self.assertIn("Eb", a["chords"])
+            self.assertNotIn("A#", a["chords"])
+        finally:
+            _os.unlink(path)
+
+    def test_sharp_key_untouched(self):
+        self.assertEqual(midi_read.respell("F#m", False), "F#m")
+        self.assertEqual(midi_read.respell("A#m", True), "Bbm")
 
 
 if __name__ == "__main__":
