@@ -410,3 +410,63 @@ def melody_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=3,
     root = chord_pitches(chords[0], octave)[0]
     notes[-1] = (last[0], last[1], root, last[3])
     return notes
+
+
+DEFAULT_SECTIONS = [
+    {"name": "intro", "bars": 4, "roles": ["pad", "arp"]},
+    {"name": "verse", "bars": 8, "roles": ["pad", "bass", "drums", "arp"]},
+    {"name": "chorus", "bars": 8, "roles": ["pad", "bass", "drums", "melody"]},
+    {"name": "verse", "bars": 8, "roles": ["pad", "bass", "drums", "arp"]},
+    {"name": "chorus", "bars": 8, "roles": ["pad", "bass", "drums", "melody"]},
+    {"name": "outro", "bars": 2, "roles": ["pad"]},
+]
+
+_ROLE_DEFS = {
+    "pad":    {"name": "Pad", "channel": 1, "program": 89, "volume": 96},
+    "bass":   {"name": "Bass", "channel": 0, "program": 38, "volume": 110},
+    "arp":    {"name": "Arp", "channel": 2, "program": 81, "volume": 88, "pan": 54},
+    "melody": {"name": "Lead", "channel": 3, "program": 80, "volume": 104},
+    "drums":  {"name": "Drums", "channel": 9, "volume": 112},
+}
+
+
+def build_song(chords, sections=None, drum_pattern_name="half_time", seed=0,
+               beats_per_bar=4):
+    """Full multi-track song from a chord loop and a section plan.
+
+    Each section activates roles; parts are generated per-section and placed
+    at the section's bars, so the arrangement builds and breathes. The same
+    seed produces the same hook in every chorus — that's songwriting, not a
+    limitation. Returns track dicts for build_smf/compose.
+    """
+    sections = sections or DEFAULT_SECTIONS
+    role_notes = {r: [] for r in _ROLE_DEFS}
+    bar = 0
+    for sec in sections:
+        bars = int(sec["bars"])
+        offset = bar * float(beats_per_bar)
+        n_chords = max(1, bars // 2)
+        seq = (chords * ((n_chords // len(chords)) + 1))[:n_chords]
+        for role in sec.get("roles", []):
+            if role == "drums":
+                notes = drum_pattern(drum_pattern_name, bars=bars)
+            elif role == "melody":
+                notes = melody_notes(seq, seed=seed)
+            elif role == "pad":
+                notes = progression_notes(seq, style="pad", octave=2)
+            elif role == "bass":
+                notes = progression_notes(seq, style="bass")
+            elif role == "arp":
+                notes = progression_notes(seq, style="arp")
+            else:
+                raise ValueError("unknown role %r (know: %s)"
+                                 % (role, sorted(_ROLE_DEFS)))
+            role_notes[role] += [(s + offset, d, p, v) for s, d, p, v in notes]
+        bar += bars
+    tracks = []
+    for role, defs in _ROLE_DEFS.items():
+        if role_notes[role]:
+            t = dict(defs)
+            t["notes"] = role_notes[role]
+            tracks.append(t)
+    return tracks

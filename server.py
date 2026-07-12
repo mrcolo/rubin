@@ -146,6 +146,39 @@ TOOLS = [
             "properties": {
                 "tempo": {"type": "number", "description": "BPM"},
                 "tracks": {"type": "array", "items": TRACK_SCHEMA},
+                "song": {
+                    "type": "object",
+                    "description": (
+                        "Whole-song shorthand (alternative to tracks): a chord "
+                        "loop + section plan generates a full arrangement — "
+                        "pads/bass/arp/drums/melody entering per section, same "
+                        "hook in every chorus"
+                    ),
+                    "properties": {
+                        "chords": {"type": "array", "items": {"type": "string"}},
+                        "sections": {
+                            "type": "array",
+                            "description": (
+                                "Default: intro 4 / verse 8 / chorus 8 / verse 8 "
+                                "/ chorus 8 / outro 2. Roles: pad, bass, arp, "
+                                "drums, melody"
+                            ),
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "bars": {"type": "integer"},
+                                    "roles": {"type": "array", "items": {"type": "string"}},
+                                },
+                                "required": ["bars", "roles"],
+                            },
+                        },
+                        "drum_pattern": {"type": "string",
+                                         "enum": ["half_time", "four_on_floor", "boom_bap", "trap"]},
+                        "seed": {"type": "integer", "description": "Hook variation"},
+                    },
+                    "required": ["chords"],
+                },
                 "time_sig": TIME_SIG_SCHEMA,
                 "key": KEY_SCHEMA,
                 "tempo_changes": TEMPO_CHANGES_SCHEMA,
@@ -412,6 +445,16 @@ def _do_compose(args):
         base = args.get("name", "composition")
         path = os.path.join(DEFAULT_OUT_DIR, base + ".mid")
     path = os.path.expanduser(path)
+    if args.get("song") and not args.get("tracks"):
+        song = args["song"]
+        args = dict(args)
+        args["tracks"] = midilib.build_song(
+            song["chords"],
+            sections=song.get("sections"),
+            drum_pattern_name=song.get("drum_pattern", "half_time"),
+            seed=song.get("seed", 0),
+        )
+        args.setdefault("humanize", 0.02)
     tracks = []
     for idx, t in enumerate(args["tracks"]):
         if "channel" not in t:

@@ -216,5 +216,36 @@ class TestComposeWarnings(unittest.TestCase):
             self.assertNotIn("Arrangement warnings", text)
 
 
+class TestSongShorthand(unittest.TestCase):
+    def test_full_song_from_one_declaration(self):
+        import midi_read
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            import server
+            server._do_compose({"tempo": 85, "key": "Am", "path": path,
+                                "song": {"chords": ["Am", "F", "C", "E"]}})
+            a = midi_read.analyze(path)
+            self.assertNotIn("warnings", a)
+            self.assertEqual(a["key_guess"], "Am")
+            self.assertEqual(len(a["tracks"]), 5)
+            curve = a["density_curve"]
+            # builds from the intro, strips at the outro
+            self.assertLess(curve[0]["active_tracks"], curve[2]["active_tracks"])
+            self.assertLess(curve[-1]["active_tracks"], curve[2]["active_tracks"])
+        finally:
+            os.unlink(path)
+
+    def test_choruses_share_the_hook(self):
+        import midi
+        tracks = midi.build_song(["Am", "F", "C", "E"])
+        lead = next(t for t in tracks if t["name"] == "Lead")["notes"]
+        # two choruses at bars 12-19 and 28-35 (beats 48.. and 112..)
+        c1 = sorted((round(s - 48, 3), round(d, 3), p) for s, d, p, v in lead if 48 <= s < 80)
+        c2 = sorted((round(s - 112, 3), round(d, 3), p) for s, d, p, v in lead if 112 <= s < 144)
+        self.assertEqual(c1, c2)
+        self.assertGreater(len(c1), 10)
+
+
 if __name__ == "__main__":
     unittest.main()
