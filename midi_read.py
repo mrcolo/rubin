@@ -41,6 +41,7 @@ def parse_smf(data):
         name = ""
         open_notes = {}
         notes = []
+        chan_counts = {}
         while p < end:
             delta, p = _read_vlq(data, p)
             tick += delta
@@ -76,6 +77,7 @@ def parse_smf(data):
                     raise ValueError("bad status 0x%02x at %d" % (status, p))
                 if kind == 0x90 and d2 > 0:
                     open_notes.setdefault((ch, d1), []).append((tick, d2))
+                    chan_counts[ch] = chan_counts.get(ch, 0) + 1
                 elif kind == 0x80 or (kind == 0x90 and d2 == 0):
                     stack = open_notes.get((ch, d1))
                     if stack:
@@ -84,7 +86,8 @@ def parse_smf(data):
                             (start / ppq, (tick - start) / ppq, d1, vel)
                         )
         notes.sort()
-        tracks.append({"name": name, "notes": notes})
+        channel = max(chan_counts, key=chan_counts.get) if chan_counts else None
+        tracks.append({"name": name, "notes": notes, "channel": channel})
         pos = end
     return ppq, tempo_bpm, tracks
 
@@ -225,6 +228,8 @@ def arrangement_warnings(tracks):
     robotically flat velocities."""
     named = []
     for i, t in enumerate(tracks):
+        if t.get("channel") == 9:
+            continue  # drum pitches are kit pieces, not register
         if len(t["notes"]) >= 8:
             pitches = sorted(n[2] for n in t["notes"])
             named.append((t["name"] or "track %d" % (i + 1), pitches))
@@ -262,3 +267,34 @@ def arrangement_warnings(tracks):
                 "'%s' has flat velocities (stddev %.1f) — humanize with "
                 "accents and ghost notes" % (t["name"] or "track %d" % (i + 1), sd))
     return warnings
+
+
+def describe(path):
+    """One-paragraph human summary of a .mid, built from analyze()."""
+    a = analyze(path)
+    bits = []
+    tracks = a["tracks"]
+    total = sum(t["notes"] for t in tracks)
+    length = max((t["length_beats"] for t in tracks), default=0)
+    bits.append("%d track(s), %d notes, ~%d bars at %g BPM" % (
+        len(tracks), total, round(length / 4), a["tempo"]))
+    if a.get("key_guess"):
+        bits.append("key %s (%.0f%% confident)" % (a["key_guess"], a["key_confidence"] * 100))
+    swings = {t["swing_guess"] for t in tracks if "swing_guess" in t and t["swing_guess"] > 52}
+    if swings:
+        bits.append("swung feel (~%d%%)" % max(swings))
+    curve = a.get("density_curve")
+    if curve and len(curve) >= 3:
+        vals = [c["notes_per_beat"] for c in curve]
+        if max(vals) > 2.5 * (min(vals) + 0.01):
+            bits.append("dynamic arrangement (density %.1f-%.1f notes/beat)" % (min(vals), max(vals)))
+        else:
+            bits.append("flat energy contour - consider distinct sections")
+    parts = "; ".join(
+        "%s: %s-%s%s" % (t["name"] or "?", t["low"], t["high"],
+                         " (poly %d)" % t["max_polyphony"] if t["max_polyphony"] > 1 else "")
+        for t in tracks[:6])
+    text = ". ".join(bits) + ". Parts - " + parts + "."
+    for w in a.get("warnings", []):
+        text += " WARNING: %s." % w
+    return text

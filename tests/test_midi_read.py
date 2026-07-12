@@ -210,5 +210,34 @@ class TestVelocityFlatness(unittest.TestCase):
         self.assertFalse(any("flat velocities" in x for x in w))
 
 
+class TestDescribe(unittest.TestCase):
+    def test_demo_beat_describes_clean(self):
+        import tempfile, os as _os, sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import demo_beat, server
+        spec = demo_beat.weeknd_beat()
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            spec["path"] = f.name
+        try:
+            server._do_compose(spec)
+            text = midi_read.describe(spec["path"])
+            self.assertIn("BPM", text)
+            self.assertIn("Am", text)
+            self.assertNotIn("WARNING", text)  # our own demo must pass its own bar
+        finally:
+            _os.unlink(spec["path"])
+
+    def test_drum_channel_recorded(self):
+        import tempfile, os as _os, midi
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            midi.write_smf(path, 90, [{"channel": 9, "notes": [(0, 1, 36, 100)]}])
+            _ppq, _t, tracks = midi_read.parse_smf(open(path, "rb").read())
+            self.assertEqual(tracks[1]["channel"], 9)
+        finally:
+            _os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()

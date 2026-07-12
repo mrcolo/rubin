@@ -58,9 +58,9 @@ def weeknd_beat():
             (b + 6.5, 1.5, root, 96),
         ]
 
-        # Pad: sustained chord across the 2 bars
-        for pitch in voicing:
-            pad.append((b, 7.75, pitch, 68))
+        # Pad: sustained chord across the 2 bars, gently varied per voice
+        for vi, pitch in enumerate(voicing):
+            pad.append((b, 7.75, pitch, 64 + ((block * 5 + vi * 3) % 9)))
 
         # Arp: 8th-note up-down cycle, quiet, slight downbeat accent
         cycle = [0, 1, 2, 3, 2, 1]

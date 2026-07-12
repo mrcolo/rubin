@@ -228,6 +228,19 @@ TOOLS = [
         },
     },
     {
+        "name": "describe_midi",
+        "description": (
+            "One-paragraph human summary of a .mid: tracks, length, key, feel, "
+            "energy contour, part registers, and any arrangement warnings. "
+            "Cheaper to read than analyze_midi's full JSON."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "MIDI file path"}},
+            "required": ["path"],
+        },
+    },
+    {
         "name": "find_patches",
         "description": (
             "Search Logic's factory patch index on disk. Returns exact patch names "
@@ -448,6 +461,12 @@ def handle_tool(name, args):
         if not os.path.isfile(path):
             raise ValueError("no such file: %s" % path)
         return json.dumps(midi_read.analyze(path))
+
+    if name == "describe_midi":
+        path = os.path.expanduser(args["path"])
+        if not os.path.isfile(path):
+            raise ValueError("no such file: %s" % path)
+        return midi_read.describe(path)
 
     if name == "find_patches":
         hits = patches.find_patches(
