@@ -236,6 +236,20 @@ TOOLS = [
         },
     },
     {
+        "name": "reveal_in_finder",
+        "description": (
+            "Reveal a file or folder in Finder, selected and ready to drag onto a "
+            "Logic track — the reliable way to add audio samples (drag-drop, since "
+            "Logic's audio import is a Browser pane, not scriptable safely). Safe: "
+            "touches only Finder."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "File or folder to reveal"}},
+            "required": ["path"],
+        },
+    },
+    {
         "name": "import_audio",
         "description": (
             "Attempt to import an audio file into the open project. NOTE: Logic's "
@@ -616,6 +630,9 @@ def handle_tool(name, args):
             raise ValueError("no such file: %s" % path)
         logic_ctl.open_midi_as_project(path)
         return "Opened %s in Logic Pro as a new project" % path
+
+    if name == "reveal_in_finder":
+        return "Revealed in Finder: %s" % logic_ctl.reveal_in_finder(args["path"])
 
     if name == "import_audio":
         path = os.path.expanduser(args["path"])

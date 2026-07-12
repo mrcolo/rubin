@@ -271,6 +271,17 @@ end tell
         "path": path.replace("\\", "\\\\").replace('"', '\\"')}, timeout=45)
 
 
+def reveal_in_finder(path):
+    """Reveal a file or folder in Finder, selected and ready to drag. Safe:
+    touches only Finder, never Logic's arrange window. This is the reliable
+    way to get audio samples into a project — drag from here onto a track."""
+    path = os.path.expanduser(path)
+    if not os.path.exists(path):
+        raise LogicError("no such path: %s" % path)
+    subprocess.run(["open", "-R", path], check=True)
+    return path
+
+
 def open_midi_as_project(path):
     """Open a .mid directly in Logic — creates a new project from the file.
 
