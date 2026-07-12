@@ -64,9 +64,12 @@ def front_window_title():
 
 
 def import_midi(path):
-    """File > Import > MIDI File... then drive the open panel to `path`.
+    """File > Import > MIDI File... then drive the file panel to `path`.
 
-    Import lands at the playhead, so we first send Return (Go to Beginning).
+    Logic presents the picker as a WINDOW titled "Import" (not a sheet), and
+    it can take a moment to appear — so this polls for it, raises it, and
+    clicks its own Import button, rather than firing blind keystrokes on a
+    timer (the observed failure mode of the naive flow).
     """
     if not logic_running():
         raise LogicError("Logic Pro is not running")
@@ -82,14 +85,37 @@ tell application "System Events"
         set importMenu to menu 1 of menu item "Import" of menu 1 of menu bar item "File" of menu bar 1
         set midiItem to (first menu item of importMenu whose name begins with "MIDI")
         click midiItem
-        delay 1.2
-        keystroke "g" using {command down, shift down} -- Go To Folder sheet
-        delay 0.7
+        -- the picker is a window named "Import"; poll for it
+        set panel to missing value
+        repeat 20 times
+            delay 0.5
+            try
+                set panel to window "Import"
+                exit repeat
+            end try
+        end repeat
+        if panel is missing value then
+            -- some configurations use a sheet instead; type into whatever is focused
+            delay 0.5
+        else
+            perform action "AXRaise" of panel
+            delay 0.3
+        end if
+        keystroke "g" using {command down, shift down} -- Go To Folder
+        delay 0.8
         keystroke "%(path)s"
         delay 0.5
         key code 36 -- confirm path
         delay 1.0
-        key code 36 -- click Import/Open
+        if panel is missing value then
+            key code 36
+        else
+            try
+                click button "Import" of panel
+            on error
+                key code 36
+            end try
+        end if
         delay 1.5
     end tell
 end tell
@@ -98,7 +124,7 @@ end tell
         "proc": process_name(),
         "path": path.replace("\\", "\\\\").replace('"', '\\"'),
     }
-    osa(script, timeout=60)
+    osa(script, timeout=90)
 
 
 def find_dialog_buttons():
