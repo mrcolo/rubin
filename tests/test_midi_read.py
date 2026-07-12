@@ -390,5 +390,28 @@ class TestStockProgression(unittest.TestCase):
                 midi.chord_pitches(chord)  # must not raise
 
 
+class TestDrumAwareness(unittest.TestCase):
+    def test_no_second_kit_when_source_has_drums(self):
+        import tempfile, os as _os, sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            midi.write_smf(path, 90, [
+                {"name": "Kit", "channel": 9, "notes": midi.drum_pattern("half_time", bars=4)},
+                {"name": "B", "channel": 0,
+                 "notes": midi.progression_notes(["Am", "F", "C", "E"], style="bass")},
+            ], key="Am")
+            s = midi_read.suggest_accompaniment(path)
+            roles = [t["name"] for t in s["tracks"]]
+            self.assertNotIn("Drums", roles)
+            self.assertTrue(any("already has drums" in n for n in s["suggestion_notes"]))
+            a = midi_read.analyze(path)
+            self.assertEqual(a["tracks"][0]["channel"], 9)
+        finally:
+            _os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()

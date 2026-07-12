@@ -133,6 +133,7 @@ def analyze(path):
             poly = max(poly, cur)
         entry = {
             "name": t["name"],
+            "channel": t.get("channel"),
             "notes": len(notes),
             "low": pitch_name(min(pitches)),
             "high": pitch_name(max(pitches)),
@@ -453,21 +454,25 @@ def suggest_accompaniment(path):
         tracks.append({"name": "Arp", "channel": 2, "program": 81,
                        "progression": {"chords": chords, "style": "arp",
                                        "bars_per_chord": bars_per_chord}})
-    # drum pattern from the source's tempo and feel
-    swung = any(t.get("swing_guess", 50) > 54 for t in a["tracks"])
-    if tempo >= 130:
-        pattern = "trap"          # 130-160, straight 16ths, half-time feel
-    elif tempo >= 118 and not swung:
-        pattern = "four_on_floor"  # house range
-    elif swung and tempo < 110:
-        pattern = "boom_bap"       # swung hip-hop
+    # drums: only if the source doesn't already have them; pattern chosen
+    # from the source's tempo and feel
+    if any(t.get("channel") == 9 for t in a["tracks"]):
+        notes.append("source already has drums; not adding another kit")
     else:
-        pattern = "half_time"      # slow dark R&B default
-    notes.append("drum pattern '%s' chosen from tempo %g and %s feel"
-                 % (pattern, tempo, "swung" if swung else "straight"))
-    tracks.append({"name": "Drums", "channel": 9,
-                   "drums": {"pattern": pattern,
-                             "bars": max(8, len(chords) * bars_per_chord)}})
+        swung = any(t.get("swing_guess", 50) > 54 for t in a["tracks"])
+        if tempo >= 130:
+            pattern = "trap"          # 130-160, straight 16ths, half-time feel
+        elif tempo >= 118 and not swung:
+            pattern = "four_on_floor"  # house range
+        elif swung and tempo < 110:
+            pattern = "boom_bap"       # swung hip-hop
+        else:
+            pattern = "half_time"      # slow dark R&B default
+        notes.append("drum pattern '%s' chosen from tempo %g and %s feel"
+                     % (pattern, tempo, "swung" if swung else "straight"))
+        tracks.append({"name": "Drums", "channel": 9,
+                       "drums": {"pattern": pattern,
+                                 "bars": max(8, len(chords) * bars_per_chord)}})
     out = {"tempo": tempo, "tracks": tracks, "humanize": 0.02}
     if key:
         out["key"] = key
