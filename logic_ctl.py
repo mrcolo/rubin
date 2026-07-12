@@ -517,3 +517,29 @@ tell application "System Events"
 end tell
 ''' % (app_name(), process_name(), key)
     osa(script)
+
+
+def list_audio_units():
+    """Installed Audio Units from the component registry (auval -a).
+
+    Returns [{"type": "instrument"|"effect"|..., "manufacturer": ..., "name": ...}].
+    Includes third-party synths (Surge XT, Dexed, Vital...) — anything Logic
+    can host. No UI involved.
+    """
+    p = subprocess.run(["auval", "-a"], capture_output=True, text=True, timeout=60)
+    kinds = {"aumu": "instrument", "aufx": "effect", "aumf": "music_effect",
+             "augn": "generator"}
+    out = []
+    for line in p.stdout.splitlines():
+        seg = line.strip().split("  -  ", 1)
+        if len(seg) == 2 and len(seg[0].split()) == 3:
+            kind = seg[0].split()[0]
+            if kind not in kinds:
+                continue
+            manu_name = seg[1].split(": ", 1)
+            out.append({
+                "type": kinds[kind],
+                "manufacturer": manu_name[0] if len(manu_name) == 2 else "",
+                "name": manu_name[1] if len(manu_name) == 2 else seg[1],
+            })
+    return out

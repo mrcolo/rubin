@@ -276,6 +276,15 @@ TOOLS = [
         },
     },
     {
+        "name": "list_plugins",
+        "description": (
+            "List installed Audio Units from the system registry (instruments and "
+            "effects, including third-party synths like Surge XT and Dexed). "
+            "No UI involved."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "save_project",
         "description": (
             "Save the open project (Cmd+S). If a Save sheet appears (never-saved "
@@ -417,6 +426,9 @@ def handle_tool(name, args):
         prefer = tuple(args.get("prefer") or ("Import Tempo", "Import", "Yes", "OK"))
         clicked = logic_ctl.answer_dialog(prefer)
         return "Clicked '%s'" % clicked if clicked else "No dialog present"
+
+    if name == "list_plugins":
+        return json.dumps(logic_ctl.list_audio_units())
 
     if name == "save_project":
         buttons = logic_ctl.save_project()
