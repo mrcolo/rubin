@@ -50,5 +50,21 @@ class TestChannelStrips(unittest.TestCase):
             self.assertIn("bus", h["category"].lower())
 
 
+class TestSurgePresets(unittest.TestCase):
+    def test_index_or_empty(self):
+        # works whether or not Surge XT is installed
+        hits = patches.find_surge_presets(limit=5)
+        for h in hits:
+            self.assertIn("name", h)
+
+    def test_missing_roots_ok(self):
+        old_roots, old_index = patches.SURGE_ROOTS, patches._surge_index
+        patches.SURGE_ROOTS, patches._surge_index = ["/nonexistent"], None
+        try:
+            self.assertEqual(patches.find_surge_presets(query="x"), [])
+        finally:
+            patches.SURGE_ROOTS, patches._surge_index = old_roots, old_index
+
+
 if __name__ == "__main__":
     unittest.main()

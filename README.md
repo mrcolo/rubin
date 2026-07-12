@@ -42,6 +42,7 @@ silently and read garbage state. rubin flips the approach:
 | `list_transcriptions` | Browse the transcription cache |
 | `analyze_midi` | Summarize any .mid: key + swing detection, range, density, polyphony, tempo |
 | `find_patches` | Search the on-disk factory patch index (name / category / engine) |
+| `find_surge_presets` | Discover installed Surge XT presets (load via Surge's browser) |
 | `find_channel_strips` | Discover factory FX-chain settings (.cst) — names for the Setting menu; not Library-loadable |
 | `select_track` | Select track N (1-based) |
 | `load_patch` | Load a Library patch onto the selected track; returns the loaded name |

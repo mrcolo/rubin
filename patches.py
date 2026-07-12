@@ -111,3 +111,53 @@ def find_channel_strips(query=None, category=None, limit=25):
         if len(hits) >= max(1, int(limit)):
             break
     return hits
+
+
+SURGE_ROOTS = [
+    os.path.expanduser("~/Library/Application Support/Surge XT"),
+    "/Library/Application Support/Surge XT",
+]
+
+_surge_index = None
+
+
+def _build_surge_index():
+    global _surge_index
+    if _surge_index is not None:
+        return _surge_index
+    _surge_index = []
+    for root in SURGE_ROOTS:
+        for bank in ("patches_factory", "patches_3rdparty"):
+            base = os.path.join(root, bank)
+            if not os.path.isdir(base):
+                continue
+            for dirpath, _dirs, files in os.walk(base):
+                for f in files:
+                    if f.endswith(".fxp"):
+                        category = os.path.relpath(dirpath, base)
+                        _surge_index.append(
+                            (f[:-4], "" if category == "." else category))
+        if _surge_index:
+            break  # first root that has content wins
+    return _surge_index
+
+
+def find_surge_presets(query=None, category=None, limit=25):
+    """Search installed Surge XT presets (.fxp) by name/category substring.
+
+    Discovery only — Surge presets load through Surge's own browser, not
+    Logic's Library. Categories mirror Surge's bank layout (Basses, Leads,
+    Pads, Keys...).
+    """
+    q = (query or "").lower()
+    cat = (category or "").lower()
+    hits = []
+    for name, preset_cat in _build_surge_index():
+        if q and q not in name.lower():
+            continue
+        if cat and cat not in preset_cat.lower():
+            continue
+        hits.append({"name": name, "category": preset_cat})
+        if len(hits) >= max(1, int(limit)):
+            break
+    return hits

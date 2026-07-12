@@ -39,7 +39,8 @@ class TestProtocol(unittest.TestCase):
             {"compose_midi", "import_midi", "compose_and_import", "open_midi_as_project",
              "transport", "select_track", "find_patches", "load_patch", "list_tracks",
              "transcribe_audio", "list_transcriptions", "analyze_midi",
-             "answer_dialog", "save_project", "list_plugins", "find_channel_strips", "logic_status"},
+             "answer_dialog", "save_project", "list_plugins", "find_channel_strips",
+             "find_surge_presets", "logic_status"},
         )
 
     def test_compose_call(self):

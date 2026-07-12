@@ -300,6 +300,23 @@ TOOLS = [
         },
     },
     {
+        "name": "find_surge_presets",
+        "description": (
+            "Search installed Surge XT synth presets (.fxp) by name/category "
+            "(Basses, Leads, Pads, Keys, Sequences...). Discovery only: presets "
+            "load via Surge's own browser inside Logic, so give the user the "
+            "preset name and category to pick."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Name substring"},
+                "category": {"type": "string", "description": "Category substring"},
+                "limit": {"type": "integer", "description": "Max results (default 25)"},
+            },
+        },
+    },
+    {
         "name": "list_plugins",
         "description": (
             "List installed Audio Units from the system registry (instruments and "
@@ -455,6 +472,13 @@ def handle_tool(name, args):
 
     if name == "find_channel_strips":
         return json.dumps(patches.find_channel_strips(
+            query=args.get("query"),
+            category=args.get("category"),
+            limit=args.get("limit", 25),
+        ))
+
+    if name == "find_surge_presets":
+        return json.dumps(patches.find_surge_presets(
             query=args.get("query"),
             category=args.get("category"),
             limit=args.get("limit", 25),
