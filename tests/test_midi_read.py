@@ -434,6 +434,24 @@ class TestEnharmonicSpelling(unittest.TestCase):
         self.assertEqual(midi_read.respell("F#m", False), "F#m")
         self.assertEqual(midi_read.respell("A#m", True), "Bbm")
 
+    def test_range_names_respelled(self):
+        self.assertEqual(midi_read.spelled_pitch_name(70, True), "Bb3")
+        self.assertEqual(midi_read.spelled_pitch_name(70, False), "A#3")
+        import tempfile, os as _os, sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            # low note is Bb (pitch 46); harmony establishes Bb major
+            midi.write_smf(path, 90, [{"name": "K", "channel": 1,
+                "notes": [(0, 8, 46, 80)] + midi.progression_notes(
+                    ["Bb", "Eb", "Gm", "F"])}], key="Bb")
+            a = midi_read.analyze(path)
+            self.assertEqual(a["tracks"][0]["low"], "Bb1")
+        finally:
+            _os.unlink(path)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -96,6 +96,14 @@ def pitch_name(p):
     return "%s%d" % (NOTE_NAMES[p % 12], p // 12 - 2)
 
 
+def spelled_pitch_name(p, prefer_flats):
+    """pitch_name, respelled to flats in flat-key contexts (Eb2, not D#2)."""
+    name = NOTE_NAMES[p % 12]
+    if prefer_flats:
+        name = _SHARP_TO_FLAT.get(name, name)
+    return "%s%d" % (name, p // 12 - 2)
+
+
 def analyze(path):
     """Summarize a .mid: per-track range, note count, density, polyphony."""
     with open(path, "rb") as f:
@@ -134,12 +142,13 @@ def analyze(path):
         for _, d in events:
             cur += d
             poly = max(poly, cur)
+        flats = out.get("key_guess") in FLAT_KEYS
         entry = {
             "name": t["name"],
             "channel": t.get("channel"),
             "notes": len(notes),
-            "low": pitch_name(min(pitches)),
-            "high": pitch_name(max(pitches)),
+            "low": spelled_pitch_name(min(pitches), flats),
+            "high": spelled_pitch_name(max(pitches), flats),
             "low_pitch": min(pitches),
             "high_pitch": max(pitches),
             "mean_velocity": round(sum(vels) / len(vels)),
