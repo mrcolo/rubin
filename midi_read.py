@@ -324,8 +324,9 @@ _CHORD_TEMPLATES = [
 
 def guess_chords(tracks, beats_per_bar=4, max_bars=64):
     """Per-bar chord names from all non-drum tracks (duration-weighted
-    pitch-class mass vs. triad/7th templates). '?' where nothing fits well,
-    None entries trimmed from the tail."""
+    pitch-class mass vs. triad/7th templates). '?' where nothing fits well;
+    'A?' = root evident but too few pitch classes to judge quality (e.g. a
+    bare bassline). None entries trimmed from the tail."""
     notes = [n for t in tracks if t.get("channel") != 9 for n in t["notes"]]
     if not notes:
         return []
@@ -345,6 +346,14 @@ def guess_chords(tracks, beats_per_bar=4, max_bars=64):
         total = sum(hist)
         if total == 0:
             chords.append(None)
+            bar += 1
+            continue
+        meaningful = [pc for pc in range(12) if hist[pc] > total * 0.05]
+        if len(meaningful) < 3:
+            # a root alone (e.g. a bassline) can't reveal chord quality —
+            # report the root with an explicit unknown marker, don't guess
+            root = max(range(12), key=lambda pc: hist[pc])
+            chords.append(NOTE_NAMES[root] + "?")
             bar += 1
             continue
         best = ("?", 0.0)

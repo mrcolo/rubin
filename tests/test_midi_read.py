@@ -263,5 +263,22 @@ class TestGuessChords(unittest.TestCase):
         self.assertEqual(midi_read.guess_chords([drums]), [])
 
 
+class TestChordAbstention(unittest.TestCase):
+    def test_bassline_reports_root_not_major(self):
+        import tempfile, os as _os, sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi
+        notes = midi.progression_notes(["Am", "F"], style="bass")
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            midi.write_smf(path, 90, [{"channel": 0, "notes": notes}])
+            _p, _t, tracks = midi_read.parse_smf(open(path, "rb").read())
+            self.assertEqual(midi_read.guess_chords(tracks),
+                             ["A?", "A?", "F?", "F?"])
+        finally:
+            _os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()
