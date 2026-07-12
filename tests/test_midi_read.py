@@ -176,5 +176,24 @@ class TestDensityCurve(unittest.TestCase):
         self.assertEqual(midi_read.density_curve([]), [])
 
 
+class TestRegisterWarnings(unittest.TestCase):
+    def mk(self, name, lo, hi):
+        return {"name": name,
+                "notes": [(i, 0.5, lo + i % (hi - lo), 90) for i in range(16)]}
+
+    def test_clash_flagged(self):
+        w = midi_read.register_warnings([self.mk("Pad", 60, 72), self.mk("Keys", 60, 72)])
+        self.assertEqual(len(w), 1)
+        self.assertIn("Pad", w[0])
+
+    def test_separated_clean(self):
+        self.assertEqual(
+            midi_read.register_warnings([self.mk("Bass", 30, 44), self.mk("Lead", 70, 82)]), [])
+
+    def test_low_end_conflict(self):
+        w = midi_read.register_warnings([self.mk("808", 28, 40), self.mk("Sub", 30, 42)])
+        self.assertTrue(any("low end" in x for x in w))
+
+
 if __name__ == "__main__":
     unittest.main()

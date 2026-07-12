@@ -106,6 +106,9 @@ def analyze(path):
     if all_notes and max(n[0] + n[1] for n in all_notes) >= 32:
         # only meaningful past ~8 bars; short clips are one window anyway
         out["density_curve"] = density_curve(tracks)
+    warns = register_warnings(tracks)
+    if warns:
+        out["register_warnings"] = warns
     for t in tracks:
         notes = t["notes"]
         if not notes:
@@ -214,3 +217,37 @@ def density_curve(tracks, beats_per_bar=4, window_bars=4):
         })
         w += 1
     return curve
+
+
+def register_warnings(tracks):
+    """Flag arrangement problems the ear would find: parts crowding the
+    same register, and multiple parts fighting over the low end."""
+    named = []
+    for i, t in enumerate(tracks):
+        if len(t["notes"]) >= 8:
+            pitches = sorted(n[2] for n in t["notes"])
+            named.append((t["name"] or "track %d" % (i + 1), pitches))
+    warnings = []
+    for a in range(len(named)):
+        for b in range(a + 1, len(named)):
+            (na, pa), (nb, pb) = named[a], named[b]
+            lo = max(pa[0], pb[0])
+            hi = min(pa[-1], pb[-1])
+            if hi <= lo:
+                continue
+            overlap = hi - lo
+            smaller_span = max(1, min(pa[-1] - pa[0], pb[-1] - pb[0]))
+            # share of each part's notes inside the shared range
+            in_a = sum(1 for p in pa if lo <= p <= hi) / len(pa)
+            in_b = sum(1 for p in pb if lo <= p <= hi) / len(pb)
+            if overlap / smaller_span > 0.7 and min(in_a, in_b) > 0.6:
+                warnings.append(
+                    "'%s' and '%s' crowd the same register (%s-%s) — "
+                    "separate them or thin one out" % (na, nb, pitch_name(lo), pitch_name(hi)))
+    low_owners = [n for n, p in named
+                  if sum(1 for x in p if x < 48) / len(p) > 0.25]
+    if len(low_owners) > 1:
+        warnings.append(
+            "multiple parts live below C2 (%s) — only one should own the low end"
+            % ", ".join("'%s'" % n for n in low_owners))
+    return warnings
