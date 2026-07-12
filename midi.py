@@ -195,11 +195,18 @@ def chord_pitches(name, octave=3):
     return [base + iv for iv in _QUALITIES[quality]]
 
 
+def _nearest_pitch(pc, target):
+    """The pitch with class `pc` closest to `target`."""
+    return min((pc + 12 * k for k in range(11)), key=lambda p: abs(p - target))
+
+
 def progression_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=None,
-                      vel=None, gap=0.25, style="pad"):
+                      vel=None, gap=0.25, style="pad", voice_lead=True):
     """Notes for a chord progression in one of three styles:
 
-    - "pad": sustained voicings (default), one per chord
+    - "pad": sustained voicings (default), one per chord, voice-led so
+      each voice moves to its nearest chord tone instead of jumping in
+      parallel (disable with voice_lead=False)
     - "bass": monophonic root groove with octave pickups, low register
     - "arp": 8th-note up-down cycle over the chord tones, an octave up
 
@@ -215,10 +222,15 @@ def progression_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=None,
     def hv(ci, i, base):  # humanized velocity
         return max(1, min(127, base + ((ci * 5 + i * 3) % 7) - 3))
 
+    prev_voicing = None
     for ci, name in enumerate(chords):
         start = ci * span
         pitches = chord_pitches(name, octave)
         if style == "pad":
+            if voice_lead and prev_voicing:
+                center = sum(prev_voicing) / len(prev_voicing)
+                pitches = sorted(_nearest_pitch(p % 12, center) for p in pitches)
+            prev_voicing = pitches
             for vi, pitch in enumerate(pitches):
                 notes.append((start, span - gap, pitch, hv(ci, vi, vel)))
         elif style == "bass":

@@ -318,5 +318,37 @@ class TestFriendlyErrors(unittest.TestCase):
         self.assertIn("channel", str(ctx.exception))
 
 
+class TestVoiceLeading(unittest.TestCase):
+    def voicings(self, notes, span=8):
+        out = {}
+        for s, d, p, v in notes:
+            out.setdefault(int(s // span), []).append(p)
+        return [sorted(v) for _, v in sorted(out.items())]
+
+    def movement(self, vs):
+        return sum(abs(sum(a) / len(a) - sum(b) / len(b))
+                   for a, b in zip(vs, vs[1:]))
+
+    def test_voice_leading_minimizes_movement(self):
+        led = self.voicings(midi.progression_notes(["Am", "F", "C", "E"]))
+        raw = self.voicings(midi.progression_notes(["Am", "F", "C", "E"], voice_lead=False))
+        self.assertLess(self.movement(led), self.movement(raw) / 3)
+
+    def test_inversions_still_detected(self):
+        import os as _os, sys as _sys, tempfile
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        import midi_read
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            path = f.name
+        try:
+            midi.write_smf(path, 90, [{"channel": 1,
+                "notes": midi.progression_notes(["Am", "F", "C", "E"])}])
+            _p, _t, tr = midi_read.parse_smf(open(path, "rb").read())
+            self.assertEqual(midi_read.guess_chords(tr),
+                             ["Am", "Am", "F", "F", "C", "C", "E", "E"])
+        finally:
+            _os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()

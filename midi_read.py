@@ -359,8 +359,12 @@ def guess_chords(tracks, beats_per_bar=4, max_bars=64):
         best = ("?", 0.0)
         for root in range(12):
             for suffix, template in _CHORD_TEMPLATES:
-                mass = sum(hist[(root + iv) % 12] for iv in template)
-                score = mass / total
+                tones = [hist[(root + iv) % 12] for iv in template]
+                mass = sum(tones)
+                # coverage penalizes templates with absent tones, so an
+                # inverted triad isn't claimed by a 7th chord it subsets
+                coverage = sum(1 for x in tones if x > total * 0.05) / len(template)
+                score = (mass / total) * coverage
                 if bass_pitch is not None and bass_pitch % 12 == root:
                     score += 0.05  # bass note on the root is strong evidence
                 if score > best[1]:
