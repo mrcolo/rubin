@@ -262,6 +262,14 @@ TOOLS = [
                             "reverse": {"type": "boolean"},
                             "fade_in": {"type": "number"},
                             "fade_out": {"type": "number"},
+                            "repeat": {
+                                "type": "object",
+                                "description": "Place the chop every `every` beats, `times` times",
+                                "properties": {
+                                    "times": {"type": "integer"},
+                                    "every": {"type": "number"},
+                                },
+                            },
                         },
                         "required": ["file", "at_beat"],
                     },

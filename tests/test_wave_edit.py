@@ -57,6 +57,18 @@ class TestWaveEdit(unittest.TestCase):
         write_wav(out, c)
         self.assertAlmostEqual(Clip.load(out).duration, 0.5, places=2)
 
+    def test_repeat_places_multiple(self):
+        out = os.path.join(self.tmp, "rep.wav")
+        # a 0.1s chop repeated 4x every 1 beat at 120 BPM (=0.5s apart)
+        r = cut_arrange([
+            {"file": self.tone, "at_beat": 0, "end": 0.1,
+             "repeat": {"times": 4, "every": 1}},
+        ], tempo=120, out_path=out)
+        self.assertEqual(r["events"], 1)  # one event spec
+        c = Clip.load(out)
+        # last chop starts at beat 3 = 1.5s, +0.1 = ~1.6s total
+        self.assertAlmostEqual(c.duration, 1.6, places=1)
+
     def test_cut_arrange(self):
         out = os.path.join(self.tmp, "song.wav")
         r = cut_arrange([

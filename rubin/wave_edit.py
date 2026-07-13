@@ -177,7 +177,8 @@ def write_wav(path, clip, peak=0.89):
 
 def cut_arrange(events, tempo=140.0, out_path=None):
     """Build a song from sample slices. `events` is a list of dicts:
-      {file, at_beat, start?, end?, pitch?, gain?, reverse?, fade_in?, fade_out?}
+      {file, at_beat, start?, end?, pitch?, gain?, reverse?, fade_in?,
+       fade_out?, repeat?:{times, every}}
     Each loads `file`, optionally slices [start,end] seconds, pitches by
     `pitch` semitones, reverses, fades (ms), and places it at `at_beat`.
     Renders a normalized 16-bit WAV to out_path. Returns {path, duration, events}."""
@@ -197,7 +198,14 @@ def cut_arrange(events, tempo=140.0, out_path=None):
             c = c.reverse()
         if ev.get("fade_in") or ev.get("fade_out"):
             c = c.fade(ev.get("fade_in", 0), ev.get("fade_out", 0))
-        arr.add(c, at_beat=ev.get("at_beat", 0), gain=ev.get("gain", 1.0))
+        gain = ev.get("gain", 1.0)
+        if rpt := ev.get("repeat"):
+            times = int(rpt.get("times", 1))
+            every = float(rpt.get("every", 1))
+            for k in range(times):
+                arr.add(c, at_beat=ev.get("at_beat", 0) + k * every, gain=gain)
+        else:
+            arr.add(c, at_beat=ev.get("at_beat", 0), gain=gain)
     out_path = os.path.expanduser(out_path or "~/Desktop/cut_arrangement.wav")
     dur = write_wav(out_path, arr.render())
     return {"path": out_path, "duration": round(dur, 2), "events": len(events)}
