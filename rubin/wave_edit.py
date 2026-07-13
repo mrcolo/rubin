@@ -54,6 +54,31 @@ class Clip:
     def copy(self):
         return Clip(array.array("f", self.s), self.rate, self.ch)
 
+    @staticmethod
+    def tone(freq, seconds, rate=44100, channels=2, amp=0.7):
+        """A sine tone — a from-scratch sound source for the arranger."""
+        n = int(seconds * rate)
+        step = 2 * math.pi * freq / rate
+        out = array.array("f", bytes(4 * channels * n))
+        for i in range(n):
+            v = amp * math.sin(step * i)
+            for c in range(channels):
+                out[i * channels + c] = v
+        return Clip(out, rate, channels)
+
+    @staticmethod
+    def noise(seconds, rate=44100, channels=2, amp=0.6):
+        """White noise (deterministic LCG) — snares, risers, textures."""
+        n = int(seconds * rate)
+        out = array.array("f", bytes(4 * channels * n))
+        seed = 12345
+        for i in range(n):
+            seed = (1103515245 * seed + 12345) & 0x7FFFFFFF
+            v = amp * (seed / 0x3FFFFFFF - 1.0)
+            for c in range(channels):
+                out[i * channels + c] = v
+        return Clip(out, rate, channels)
+
     # ---- edits (return new clips; originals untouched) ----------------
     def slice(self, start_s, end_s=None):
         a = max(0, int(start_s * self.rate)) * self.ch
@@ -252,3 +277,26 @@ def cut_arrange(events, tempo=140.0, out_path=None, limit=False):
     out_path = os.path.expanduser(out_path or "~/Desktop/cut_arrangement.wav")
     dur = write_wav(out_path, arr.render(), limit=limit)
     return {"path": out_path, "duration": round(dur, 2), "events": len(events)}
+
+
+def demo(out_path=None):
+    """Render a short from-scratch cut without external files: a synthesized
+    sub + kick + noise-snare in a half-time dubstep pattern. Exercises the
+    whole engine (synthesis -> slice/fade -> arrange -> mix -> write)."""
+    import os, tempfile
+    d = tempfile.mkdtemp()
+    kick = Clip.tone(55, 0.18).fade(1, 120)
+    sub = Clip.tone(41.2, 0.5).fade(3, 60)          # E1 sub
+    snare = Clip.noise(0.2).fade(1, 90)
+    kp = os.path.join(d, "kick.wav"); write_wav(kp, kick)
+    sp = os.path.join(d, "sub.wav"); write_wav(sp, sub)
+    np_ = os.path.join(d, "snare.wav"); write_wav(np_, snare)
+    events = []
+    for bar in range(8):
+        b = bar * 4
+        events.append({"file": sp, "at_beat": b, "gain": 0.9})
+        events.append({"file": kp, "at_beat": b, "gain": 1.0})
+        events.append({"file": kp, "at_beat": b + 1.5, "gain": 0.85})
+        events.append({"file": np_, "at_beat": b + 2, "gain": 0.8})
+    out_path = os.path.expanduser(out_path or "~/Desktop/cut_demo.wav")
+    return cut_arrange(events, tempo=140, out_path=out_path, limit=True)

@@ -174,6 +174,7 @@ Requires macOS Accessibility + Automation permissions for the host app
 python3 -m unittest discover -s tests   # 76 tests, no Logic needed for most
 python3 server.py --demo                # compose + open a demo beat in Logic
 python3 server.py --demo --write-only   # just write the .mid
+python3 server.py --cut-demo demo.wav   # render a from-scratch sample cut (no external files)
 ```
 
 ## Files

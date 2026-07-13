@@ -901,6 +901,11 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--check":
         check()
         return
+    if len(sys.argv) > 1 and sys.argv[1] == "--cut-demo":
+        extra = [a for a in sys.argv[2:] if not a.startswith("--")]
+        r = wave_edit.demo(extra[0] if extra else None)
+        print("Rendered %s (%.1fs)" % (r["path"], r["duration"]))
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "--demo":
         from rubin import demo_beat
 

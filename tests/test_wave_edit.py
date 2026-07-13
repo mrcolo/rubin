@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from rubin.wave_edit import Clip, Arrangement, write_wav, cut_arrange, _soft_clip
+from rubin.wave_edit import Clip, Arrangement, write_wav, cut_arrange, _soft_clip, demo
 
 
 def make_tone(path, seconds=0.5, rate=44100, ch=2):
@@ -171,6 +171,27 @@ class TestNormalizeAndValidation(unittest.TestCase):
             cut_arrange([{"file": "/does/not/exist.wav", "at_beat": 0}],
                         out_path="/tmp/never.wav")
         self.assertIn("missing", str(ctx.exception).lower())
+
+
+class TestSynthesisAndDemo(unittest.TestCase):
+    def test_tone_length_and_level(self):
+        t = Clip.tone(440, 0.25)
+        self.assertAlmostEqual(t.duration, 0.25, places=2)
+        self.assertGreater(max(abs(x) for x in t.s), 0.5)
+
+    def test_noise_deterministic(self):
+        a = Clip.noise(0.1)
+        b = Clip.noise(0.1)
+        self.assertEqual(list(a.s), list(b.s))
+
+    def test_demo_renders_nonsilent(self):
+        import os, tempfile, math
+        out = os.path.join(tempfile.mkdtemp(), "d.wav")
+        r = demo(out)
+        self.assertTrue(os.path.isfile(out))
+        c = Clip.load(out)
+        rms = math.sqrt(sum(x * x for x in c.s[:44100]) / 44100)
+        self.assertGreater(rms, 0.05)
 
 
 if __name__ == "__main__":
