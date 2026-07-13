@@ -45,6 +45,10 @@ silently and read garbage state. rubin flips the approach:
 | `analyze_midi` | Full analysis: key/swing/chord detection, density contour, warnings, per-track stats |
 | `describe_midi` | The same, as one readable paragraph |
 | `suggest_accompaniment` | Analysis → ready compose_midi args that fit a source file (registers, key, feel) |
+| `cut_samples` | Cut/arrange WAV sample slices on a tempo grid into a rendered song (no DAW) |
+| `catalog_samples` | Report each sample's pitch, key, and kind (pitched/sub/noise) |
+| `reveal_in_finder` | Reveal a file/folder in Finder, ready to drag onto a track |
+| `import_audio` | Reveal + drag guidance (Logic audio import isn't scriptable) |
 | `find_patches` | Search the on-disk factory patch index (name / category / engine) |
 | `find_surge_presets` | Discover installed Surge XT presets (load via Surge's browser) |
 | `find_channel_strips` | Discover factory FX-chain settings (.cst) — names for the Setting menu; not Library-loadable |
@@ -123,6 +127,28 @@ result back (rubin has its own SMF parser) and reports what the instrument
 plays: pitch range, note density, polyphony. That loop — hear it, read it,
 compose against it — is how rubin learns what source material sounds like.
 
+## Cut samples into a song
+
+rubin edits audio the way it composes MIDI — as a deterministic file
+operation, never through a DAW's region UI. `cut_samples` loads WAV files
+(16/24/32-bit), slices/pitches/reverses/fades them, and arranges the chops
+on a tempo grid into a rendered mix:
+
+```
+catalog_samples {folder: "~/Music/Samples/dubstep"}
+  → Evil_1: sub, key E · Down_Growl: noise · ...
+cut_samples {tempo: 140, out_path: "~/Desktop/drop.wav", events: [
+  {file: ".../Evil_1.wav", at_beat: 0, repeat: {times: 8, every: 4}},        # E sub every bar
+  {file: ".../Down_Growl.wav", at_beat: 0, end: 0.2, pitch: 3,
+   repeat: {times: 32, every: 0.5}},                                          # growl chops
+]}
+```
+
+`catalog_samples` first tells you each sample's pitch and whether it's tonal
+or texture, so you can tune and place them. Output is a standard WAV any DAW
+imports (or drag it in via `reveal_in_finder`). `limit: true` soft-clips
+dense stacks so one loud hit doesn't thin the mix.
+
 ## Install
 
 ```sh
@@ -156,6 +182,7 @@ python3 server.py --demo --write-only   # just write the .mid
 - `midi.py` — Standard MIDI File writer
 - `midi_read.py` — SMF parser + per-track analyzer
 - `transcribe.py` — basic-pitch wrapper + content-addressed cache
+- `wave_edit.py` — zero-dependency WAV slicer/arranger (the audio counterpart to midi.py)
 - `patches.py` — factory patch index reader
 - `logic_ctl.py` — the minimal AppleScript/AX layer
 - `demo_beat.py` — 8-bar dark R&B demo (85 BPM, Am–F–C–E)
