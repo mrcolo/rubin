@@ -253,6 +253,23 @@ TOOLS = [
         },
     },
     {
+        "name": "analyze_audio",
+        "description": (
+            "RMS energy contour of a WAV — 'see' its dynamics (does the drop "
+            "actually hit? is the intro quiet?) without hearing it. The audio "
+            "counterpart to analyze_midi's density curve. Returns duration, "
+            "peak, rms, and per-window energy over time."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "window_s": {"type": "number", "description": "Window size in seconds (default 0.5)"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
         "name": "cut_samples",
         "description": (
             "Cut audio samples into a song: arrange slices of WAV files on a "
@@ -699,6 +716,12 @@ def handle_tool(name, args):
             raise ValueError("no such file: %s" % path)
         logic_ctl.open_midi_as_project(path)
         return "Opened %s in Logic Pro as a new project" % path
+
+    if name == "analyze_audio":
+        path = os.path.expanduser(args["path"])
+        if not os.path.isfile(path):
+            raise ValueError("no such file: %s" % path)
+        return json.dumps(wave_edit.analyze_audio(path, args.get("window_s", 0.5)))
 
     if name == "render_midi_audio":
         path = os.path.expanduser(args["midi_path"])

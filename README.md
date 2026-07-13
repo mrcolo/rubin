@@ -47,6 +47,7 @@ silently and read garbage state. rubin flips the approach:
 | `suggest_accompaniment` | Analysis → ready compose_midi args that fit a source file (registers, key, feel) |
 | `cut_samples` | Cut/arrange WAV sample slices on a tempo grid into a rendered song (no DAW) |
 | `render_midi_audio` | Bounce a .mid to WAV with the built-in synth (mix MIDI arrangements with sample cuts) |
+| `analyze_audio` | RMS energy contour of a WAV — 'see' a render's dynamics without hearing it |
 | `catalog_samples` | Report each sample's pitch, key, and kind (pitched/sub/noise) |
 | `reveal_in_finder` | Reveal a file/folder in Finder, ready to drag onto a track |
 | `import_audio` | Reveal + drag guidance (Logic audio import isn't scriptable) |

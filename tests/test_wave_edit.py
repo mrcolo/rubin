@@ -215,5 +215,32 @@ class TestRenderMidi(unittest.TestCase):
         self.assertGreater(rms, 0.05)
 
 
+class TestAnalyzeAudio(unittest.TestCase):
+    def test_contour_tracks_energy(self):
+        import os, tempfile, array
+        d = tempfile.mkdtemp()
+        # first half loud, second half silent
+        loud = Clip(array.array("f", [0.6, 0.6] * 22050), 44100, 2)   # 0.5s
+        quiet = Clip.silence(0.5)
+        from rubin.wave_edit import Arrangement
+        arr = Arrangement(tempo=120).add(loud, at_s=0).add(quiet, at_s=0.5)
+        out = os.path.join(d, "e.wav")
+        write_wav(out, arr.render())
+        from rubin.wave_edit import analyze_audio
+        a = analyze_audio(out, window_s=0.25)
+        self.assertGreater(a["peak"], 0.5)
+        # early windows louder than late windows
+        self.assertGreater(a["contour"][0]["rms"], a["contour"][-1]["rms"])
+
+    def test_fields_present(self):
+        import os, tempfile
+        from rubin.wave_edit import analyze_audio, demo
+        out = os.path.join(tempfile.mkdtemp(), "d.wav")
+        demo(out)
+        a = analyze_audio(out)
+        for k in ("duration", "peak", "rms", "contour"):
+            self.assertIn(k, a)
+
+
 if __name__ == "__main__":
     unittest.main()

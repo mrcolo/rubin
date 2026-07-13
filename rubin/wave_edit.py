@@ -345,3 +345,35 @@ def render_midi(midi_path, out_path=None, rate=44100):
     dur = write_wav(out_path, arr.render(), limit=True)
     return {"path": out_path, "duration": round(dur, 2),
             "voices": sum(len(t["notes"]) for t in tracks), "tempo": tempo}
+
+
+def analyze_audio(path, window_s=0.5):
+    """RMS energy contour of a WAV so a session can 'see' its dynamics without
+    hearing it — the audio analog of analyze_midi's density curve. Returns
+    duration, peak, overall RMS, and per-window [{t, rms}] energy over time."""
+    import os, math
+    c = Clip.load(os.path.expanduser(path))
+    n = c.frames
+    win = max(1, int(window_s * c.rate))
+    contour = []
+    peak = 0.0
+    sq_total = 0.0
+    for w0 in range(0, n, win):
+        s = 0.0
+        cnt = 0
+        for f in range(w0, min(w0 + win, n)):
+            for ch in range(c.ch):
+                v = c.s[f * c.ch + ch]
+                s += v * v
+                a = v if v >= 0 else -v
+                if a > peak:
+                    peak = a
+                cnt += 1
+        if cnt:
+            sq_total += s
+            contour.append({"t": round(w0 / c.rate, 2),
+                            "rms": round(math.sqrt(s / cnt), 4)})
+    total_samples = n * c.ch
+    overall = round(math.sqrt(sq_total / total_samples), 4) if total_samples else 0.0
+    return {"duration": round(c.duration, 2), "peak": round(peak, 4),
+            "rms": overall, "contour": contour}
