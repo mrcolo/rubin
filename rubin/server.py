@@ -20,6 +20,7 @@ from rubin import midi_read  # noqa: E402
 from rubin import logic_ctl  # noqa: E402
 from rubin import patches  # noqa: E402
 from rubin import transcribe as transcribe_mod  # noqa: E402
+from rubin import wave_edit  # noqa: E402
 
 DEFAULT_OUT_DIR = os.path.expanduser("~/Desktop")
 
@@ -233,6 +234,42 @@ TOOLS = [
             "type": "object",
             "properties": {"path": {"type": "string", "description": "Absolute path to .mid file"}},
             "required": ["path"],
+        },
+    },
+    {
+        "name": "cut_samples",
+        "description": (
+            "Cut audio samples into a song: arrange slices of WAV files on a "
+            "tempo grid and render a mixed .wav (zero-dependency, no DAW UI). "
+            "Each event: {file, at_beat, start?, end? (seconds), pitch? "
+            "(semitones), gain?, reverse?, fade_in?/fade_out? (ms)}. Great for "
+            "chopping growls/subs into a dubstep drop."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string"},
+                            "at_beat": {"type": "number"},
+                            "start": {"type": "number"},
+                            "end": {"type": "number"},
+                            "pitch": {"type": "number"},
+                            "gain": {"type": "number"},
+                            "reverse": {"type": "boolean"},
+                            "fade_in": {"type": "number"},
+                            "fade_out": {"type": "number"},
+                        },
+                        "required": ["file", "at_beat"],
+                    },
+                },
+                "tempo": {"type": "number", "description": "BPM (default 140)"},
+                "out_path": {"type": "string", "description": "Output .wav (default ~/Desktop/cut_arrangement.wav)"},
+            },
+            "required": ["events"],
         },
     },
     {
@@ -634,6 +671,12 @@ def handle_tool(name, args):
             raise ValueError("no such file: %s" % path)
         logic_ctl.open_midi_as_project(path)
         return "Opened %s in Logic Pro as a new project" % path
+
+    if name == "cut_samples":
+        r = wave_edit.cut_arrange(
+            args["events"], tempo=args.get("tempo", 140),
+            out_path=args.get("out_path"))
+        return json.dumps(r)
 
     if name == "reveal_in_finder":
         return "Revealed in Finder: %s" % logic_ctl.reveal_in_finder(args["path"])

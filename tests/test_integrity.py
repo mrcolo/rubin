@@ -27,6 +27,7 @@ EXPECTED = {
     "server": (200, ["main", "check", "verify", "serve", "handle_tool",
                      "_do_compose", "TOOLS"]),
     "demo_beat": (20, ["weeknd_beat"]),
+    "wave_edit": (80, ["Clip", "Arrangement", "write_wav", "cut_arrange"]),
 }
 
 
