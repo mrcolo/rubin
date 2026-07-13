@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rubin-mcp"
-version = "1.4.0"
+version = "1.5.0"
 description = "MCP server that turns Logic Pro into an AI-playable instrument: compose MIDI, load patches, transcribe audio"
 readme = "README.md"
 requires-python = ">=3.9"
