@@ -64,6 +64,18 @@ class Clip:
     def gain(self, factor):
         return Clip(array.array("f", [x * factor for x in self.s]), self.rate, self.ch)
 
+    def normalize(self, peak=0.95):
+        """Scale so the clip's own peak sits at `peak` — evens out one-shots
+        recorded at inconsistent levels before arranging."""
+        hi = 0.0
+        for x in self.s:
+            a = x if x >= 0 else -x
+            if a > hi:
+                hi = a
+        if hi == 0:
+            return self.copy()
+        return self.gain(peak / hi)
+
     def pan(self, p):
         """Balance a stereo clip: p in [-1,1], -1 = hard left, 0 = center,
         +1 = hard right. Mono clips are returned unchanged."""
@@ -196,11 +208,16 @@ def write_wav(path, clip, peak=0.89, limit=False):
 def cut_arrange(events, tempo=140.0, out_path=None, limit=False):
     """Build a song from sample slices. `events` is a list of dicts:
       {file, at_beat, start?, end?, pitch?, gain?, reverse?, fade_in?,
-       fade_out?, pan? (-1..1), pitch_to?/from_note?, repeat?:{times, every}}
+       fade_out?, pan? (-1..1), normalize?, pitch_to?/from_note?, repeat?:{times, every}}
     Each loads `file`, optionally slices [start,end] seconds, pitches by
     `pitch` semitones, reverses, fades (ms), and places it at `at_beat`.
     Renders a normalized 16-bit WAV to out_path. Returns {path, duration, events}."""
     import os
+    # pre-flight: fail cleanly on any missing file BEFORE rendering anything
+    missing = sorted({os.path.expanduser(ev["file"]) for ev in events
+                      if not os.path.isfile(os.path.expanduser(ev["file"]))})
+    if missing:
+        raise ValueError("missing sample file(s): %s" % ", ".join(missing))
     cache = {}
     arr = Arrangement(tempo=tempo)
     for ev in events:
@@ -208,6 +225,8 @@ def cut_arrange(events, tempo=140.0, out_path=None, limit=False):
         if path not in cache:
             cache[path] = Clip.load(path)
         c = cache[path]
+        if ev.get("normalize"):
+            c = c.normalize()
         if "start" in ev or "end" in ev:
             c = c.slice(ev.get("start", 0), ev.get("end"))
         semis = ev.get("pitch", 0)

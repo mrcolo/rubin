@@ -155,5 +155,23 @@ class TestPan(unittest.TestCase):
         self.assertTrue(os.path.isfile(out))
 
 
+class TestNormalizeAndValidation(unittest.TestCase):
+    def test_normalize_peaks_at_target(self):
+        import array
+        c = Clip(array.array("f", [0.1, -0.1] * 100), 44100, 2).normalize()
+        self.assertAlmostEqual(max(abs(x) for x in c.s), 0.95, places=2)
+
+    def test_normalize_silence_safe(self):
+        import array
+        c = Clip(array.array("f", [0.0] * 40), 44100, 2)
+        self.assertEqual(list(c.normalize().s), list(c.s))
+
+    def test_missing_file_raises_before_render(self):
+        with self.assertRaises(ValueError) as ctx:
+            cut_arrange([{"file": "/does/not/exist.wav", "at_beat": 0}],
+                        out_path="/tmp/never.wav")
+        self.assertIn("missing", str(ctx.exception).lower())
+
+
 if __name__ == "__main__":
     unittest.main()

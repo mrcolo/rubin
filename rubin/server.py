@@ -263,6 +263,7 @@ TOOLS = [
                             "gain": {"type": "number"},
                             "pan": {"type": "number", "description": "-1 (hard left) .. +1 (hard right)"},
                             "reverse": {"type": "boolean"},
+                            "normalize": {"type": "boolean", "description": "Level the clip to its own peak before placing"},
                             "fade_in": {"type": "number"},
                             "fade_out": {"type": "number"},
                             "repeat": {
