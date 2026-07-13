@@ -127,10 +127,10 @@ class TestPitchTo(unittest.TestCase):
 class TestPan(unittest.TestCase):
     def test_hard_left_silences_right(self):
         import array
-        c = Clip(array.array("f", [0.4, 0.4] * 50), 44100, 2)
+        c = Clip(array.array("f", [0.5, 0.5] * 50), 44100, 2)  # 0.5 exact in float32
         L = c.pan(-1.0)
         self.assertTrue(all(L.s[i] == 0 for i in range(1, len(L.s), 2)))   # right
-        self.assertTrue(all(L.s[i] == 0.4 for i in range(0, len(L.s), 2)))  # left
+        self.assertTrue(all(L.s[i] == 0.5 for i in range(0, len(L.s), 2)))  # left
 
     def test_center_unchanged(self):
         import array
