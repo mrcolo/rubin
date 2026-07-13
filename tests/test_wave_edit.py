@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from rubin.wave_edit import Clip, Arrangement, write_wav, cut_arrange
+from rubin.wave_edit import Clip, Arrangement, write_wav, cut_arrange, _soft_clip
 
 
 def make_tone(path, seconds=0.5, rate=44100, ch=2):
@@ -76,6 +76,30 @@ class TestWaveEdit(unittest.TestCase):
             {"file": self.tone, "at_beat": 1, "pitch": 5, "gain": 0.8},
         ], tempo=140, out_path=out)
         self.assertEqual(r["events"], 2)
+        self.assertTrue(os.path.isfile(out))
+
+
+class TestSoftLimit(unittest.TestCase):
+    def test_quiet_transparent(self):
+        for x in (0.0, 0.3, -0.5, 0.79):
+            self.assertEqual(_soft_clip(x), x)
+
+    def test_loud_capped_and_symmetric(self):
+        self.assertLessEqual(abs(_soft_clip(9.0)), 1.0)
+        self.assertGreater(abs(_soft_clip(9.0)), 0.9)
+        self.assertEqual(_soft_clip(-1.3), -_soft_clip(1.3))
+
+    def test_monotonic_above_knee(self):
+        self.assertGreaterEqual(_soft_clip(1.5), _soft_clip(1.0))
+
+    def test_limit_write_runs(self):
+        c = Clip.load(self.tone) if hasattr(self, "tone") else None
+        import tempfile, os
+        d = tempfile.mkdtemp()
+        make_tone(os.path.join(d, "t.wav"))
+        src = Clip.load(os.path.join(d, "t.wav")).gain(3.0)  # deliberately hot
+        out = os.path.join(d, "lim.wav")
+        write_wav(out, src, limit=True)
         self.assertTrue(os.path.isfile(out))
 
 

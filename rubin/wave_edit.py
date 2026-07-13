@@ -10,6 +10,7 @@ no DAW UI. Output is a standard 16-bit WAV any DAW imports.
 
 import array
 import audioop
+import math
 import wave
 
 
@@ -139,9 +140,27 @@ class Arrangement:
         return Clip(mix, self.rate, self.ch)
 
 
-def write_wav(path, clip, peak=0.89):
-    """Write a clip to 16-bit WAV, normalizing so the peak sits at `peak`."""
+def _soft_clip(x, knee=0.8):
+    """tanh-style soft saturation above `knee`; linear below (transparent for
+    quiet content, tames loud transients without a hard-clip edge)."""
+    a = x if x >= 0 else -x
+    if a <= knee:
+        return x
+    over = (a - knee) / (1.0 - knee)
+    shaped = knee + (1.0 - knee) * math.tanh(over)
+    return shaped if x >= 0 else -shaped
+
+
+def write_wav(path, clip, peak=0.89, limit=False):
+    """Write a clip to 16-bit WAV, normalized so the peak sits at `peak`.
+
+    With `limit=True`, apply soft-clip limiting first so a single loud
+    transient doesn't peak-normalize the whole mix into quietness — useful
+    for dense sample stacks. Quiet content is unaffected either way.
+    """
     s = clip.s
+    if limit:
+        s = array.array("f", [_soft_clip(x) for x in s])
     hi = 0.0
     for x in s:
         a = x if x >= 0 else -x
@@ -161,7 +180,7 @@ def write_wav(path, clip, peak=0.89):
     return clip.duration
 
 
-def cut_arrange(events, tempo=140.0, out_path=None):
+def cut_arrange(events, tempo=140.0, out_path=None, limit=False):
     """Build a song from sample slices. `events` is a list of dicts:
       {file, at_beat, start?, end?, pitch?, gain?, reverse?, fade_in?,
        fade_out?, repeat?:{times, every}}
@@ -193,5 +212,5 @@ def cut_arrange(events, tempo=140.0, out_path=None):
         else:
             arr.add(c, at_beat=ev.get("at_beat", 0), gain=gain)
     out_path = os.path.expanduser(out_path or "~/Desktop/cut_arrangement.wav")
-    dur = write_wav(out_path, arr.render())
+    dur = write_wav(out_path, arr.render(), limit=limit)
     return {"path": out_path, "duration": round(dur, 2), "events": len(events)}
