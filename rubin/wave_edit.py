@@ -300,3 +300,48 @@ def demo(out_path=None):
         events.append({"file": np_, "at_beat": b + 2, "gain": 0.8})
     out_path = os.path.expanduser(out_path or "~/Desktop/cut_demo.wav")
     return cut_arrange(events, tempo=140, out_path=out_path, limit=True)
+
+
+# GM drum note -> (synth kind, freq). Rough but recognizable.
+_DRUM_MAP = {
+    36: ("tone", 55), 35: ("tone", 50),           # kicks
+    38: ("noise", None), 40: ("noise", None),      # snares
+    39: ("noise", None),                           # clap
+    42: ("noise_hi", None), 44: ("noise_hi", None),
+    46: ("noise_hi", None), 49: ("noise_hi", None), 51: ("noise_hi", None),
+}
+
+
+def _note_clip(pitch, dur_s, vel, rate, drum=False):
+    amp = max(0.05, min(1.0, vel / 127.0)) * 0.5
+    if drum:
+        kind, freq = _DRUM_MAP.get(pitch, ("noise_hi", None))
+        if kind == "tone":
+            return Clip.tone(freq, min(dur_s, 0.22), rate, amp=amp).fade(1, 120)
+        hp = min(dur_s, 0.18 if kind == "noise" else 0.06)
+        return Clip.noise(hp, rate, amp=amp * (1.0 if kind == "noise" else 0.6)).fade(1, 40)
+    freq = 440.0 * (2 ** ((pitch - 69) / 12.0))
+    rel = min(int(dur_s * 1000), 90)
+    return Clip.tone(freq, dur_s, rate, amp=amp).fade(4, rel)
+
+
+def render_midi(midi_path, out_path=None, rate=44100):
+    """Bounce a .mid to audio with rubin's built-in synth: sine voices for
+    pitched tracks, noise/tone hits for channel-9 drums. No DAW or plugin —
+    lets a composed MIDI arrangement be mixed with sample cuts."""
+    import os
+    from rubin import midi_read
+    with open(os.path.expanduser(midi_path), "rb") as f:
+        ppq, tempo, tracks = midi_read.parse_smf(f.read())
+    arr = Arrangement(tempo=tempo, rate=rate)
+    for t in tracks:
+        drum = t.get("channel") == 9
+        for start, dur, pitch, vel in t["notes"]:
+            dur_s = arr.beat_to_s(dur)
+            if dur_s < 0.02:
+                dur_s = 0.02
+            arr.add(_note_clip(pitch, dur_s, vel, rate, drum), at_beat=start)
+    out_path = os.path.expanduser(out_path or "~/Desktop/midi_render.wav")
+    dur = write_wav(out_path, arr.render(), limit=True)
+    return {"path": out_path, "duration": round(dur, 2),
+            "voices": sum(len(t["notes"]) for t in tracks), "tempo": tempo}

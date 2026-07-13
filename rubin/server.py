@@ -237,6 +237,22 @@ TOOLS = [
         },
     },
     {
+        "name": "render_midi_audio",
+        "description": (
+            "Bounce a .mid to a WAV using rubin's built-in synth (sine voices + "
+            "noise/tone drums) — no DAW or plugin. Lets a composed MIDI "
+            "arrangement be mixed/layered with sample cuts (cut_samples)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "midi_path": {"type": "string"},
+                "out_path": {"type": "string", "description": "Output .wav (default ~/Desktop/midi_render.wav)"},
+            },
+            "required": ["midi_path"],
+        },
+    },
+    {
         "name": "cut_samples",
         "description": (
             "Cut audio samples into a song: arrange slices of WAV files on a "
@@ -684,6 +700,12 @@ def handle_tool(name, args):
         logic_ctl.open_midi_as_project(path)
         return "Opened %s in Logic Pro as a new project" % path
 
+    if name == "render_midi_audio":
+        path = os.path.expanduser(args["midi_path"])
+        if not os.path.isfile(path):
+            raise ValueError("no such file: %s" % path)
+        return json.dumps(wave_edit.render_midi(path, args.get("out_path")))
+
     if name == "cut_samples":
         r = wave_edit.cut_arrange(
             args["events"], tempo=args.get("tempo", 140),
@@ -900,6 +922,11 @@ def main():
         sys.exit(verify(sys.argv[2]))
     if len(sys.argv) > 1 and sys.argv[1] == "--check":
         check()
+        return
+    if len(sys.argv) > 2 and sys.argv[1] == "--render-midi":
+        r = wave_edit.render_midi(sys.argv[2],
+                                  sys.argv[3] if len(sys.argv) > 3 else None)
+        print("Rendered %s (%.1fs, %d voices)" % (r["path"], r["duration"], r["voices"]))
         return
     if len(sys.argv) > 1 and sys.argv[1] == "--cut-demo":
         extra = [a for a in sys.argv[2:] if not a.startswith("--")]

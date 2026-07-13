@@ -194,5 +194,26 @@ class TestSynthesisAndDemo(unittest.TestCase):
         self.assertGreater(rms, 0.05)
 
 
+class TestRenderMidi(unittest.TestCase):
+    def test_bounce_produces_audio(self):
+        import os, tempfile, math, sys as _sys
+        _sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from rubin import wave_edit, server
+        d = tempfile.mkdtemp()
+        mid = os.path.join(d, "t.mid")
+        server._do_compose({"tempo": 120, "path": mid, "tracks": [
+            {"name": "L", "channel": 0, "notes":
+                [{"start": i, "dur": 0.5, "pitch": 60 + i, "vel": 100} for i in range(8)]},
+            {"name": "D", "channel": 9, "notes":
+                [{"start": i * 0.5, "dur": 0.2, "pitch": 36, "vel": 110} for i in range(16)]},
+        ]})
+        out = os.path.join(d, "r.wav")
+        r = wave_edit.render_midi(mid, out)
+        self.assertEqual(r["voices"], 24)
+        c = wave_edit.Clip.load(out)
+        rms = math.sqrt(sum(x * x for x in c.s[:44100]) / 44100)
+        self.assertGreater(rms, 0.05)
+
+
 if __name__ == "__main__":
     unittest.main()
