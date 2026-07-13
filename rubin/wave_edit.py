@@ -9,7 +9,7 @@ no DAW UI. Output is a standard 16-bit WAV any DAW imports.
 """
 
 import array
-import struct
+import audioop
 import wave
 
 
@@ -35,28 +35,14 @@ class Clip:
                             w.getframerate(), w.getnframes())
         raw = w.readframes(nf)
         w.close()
-        out = array.array("f", bytes(4 * ch * nf))
-        n = ch * nf
-        if sw == 2:
-            ints = struct.unpack("<%dh" % n, raw)
-            scale = 1.0 / 32768.0
-            for i in range(n):
-                out[i] = ints[i] * scale
-        elif sw == 3:
-            scale = 1.0 / 8388608.0
-            for i in range(n):
-                b0, b1, b2 = raw[3 * i], raw[3 * i + 1], raw[3 * i + 2]
-                v = b0 | (b1 << 8) | (b2 << 16)
-                if v & 0x800000:
-                    v -= 0x1000000
-                out[i] = v * scale
-        elif sw == 4:
-            ints = struct.unpack("<%di" % n, raw)
-            scale = 1.0 / 2147483648.0
-            for i in range(n):
-                out[i] = ints[i] * scale
-        else:
+        if sw not in (1, 2, 3, 4):
             raise ValueError("unsupported sample width %d bytes" % sw)
+        # audioop does the bit-depth conversion to 32-bit in one C call
+        # (the per-sample Python decode was the slow path, esp. for 24-bit)
+        ints = array.array("i")
+        ints.frombytes(audioop.lin2lin(raw, sw, 4))
+        scale = 1.0 / 2147483648.0
+        out = array.array("f", [x * scale for x in ints])
         return Clip(out, rate, ch)
 
     @staticmethod
