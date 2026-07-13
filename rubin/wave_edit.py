@@ -183,7 +183,7 @@ def write_wav(path, clip, peak=0.89, limit=False):
 def cut_arrange(events, tempo=140.0, out_path=None, limit=False):
     """Build a song from sample slices. `events` is a list of dicts:
       {file, at_beat, start?, end?, pitch?, gain?, reverse?, fade_in?,
-       fade_out?, repeat?:{times, every}}
+       fade_out?, pitch_to?/from_note? (tune to a note), repeat?:{times, every}}
     Each loads `file`, optionally slices [start,end] seconds, pitches by
     `pitch` semitones, reverses, fades (ms), and places it at `at_beat`.
     Renders a normalized 16-bit WAV to out_path. Returns {path, duration, events}."""
@@ -197,8 +197,12 @@ def cut_arrange(events, tempo=140.0, out_path=None, limit=False):
         c = cache[path]
         if "start" in ev or "end" in ev:
             c = c.slice(ev.get("start", 0), ev.get("end"))
-        if ev.get("pitch"):
-            c = c.pitch(ev["pitch"])
+        semis = ev.get("pitch", 0)
+        if ev.get("pitch_to") and ev.get("from_note"):
+            from rubin.midi import note_to_midi
+            semis = note_to_midi(ev["pitch_to"]) - note_to_midi(ev["from_note"])
+        if semis:
+            c = c.pitch(semis)
         if ev.get("reverse"):
             c = c.reverse()
         if ev.get("fade_in") or ev.get("fade_out"):

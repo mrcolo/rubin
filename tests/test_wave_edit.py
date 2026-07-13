@@ -103,5 +103,26 @@ class TestSoftLimit(unittest.TestCase):
         self.assertTrue(os.path.isfile(out))
 
 
+class TestPitchTo(unittest.TestCase):
+    def test_pitch_to_computes_shift(self):
+        import os
+        d = tempfile.mkdtemp()
+        make_tone(os.path.join(d, "t.wav"), seconds=0.4)
+        out = os.path.join(d, "tuned.wav")
+        # tune a "D1" sample up to "E1" = +2 semitones (shorter/higher)
+        r = cut_arrange([
+            {"file": os.path.join(d, "t.wav"), "at_beat": 0,
+             "pitch_to": "E1", "from_note": "D1"},
+        ], tempo=140, out_path=out)
+        base = Clip.load(os.path.join(d, "t.wav")).duration
+        tuned = Clip.load(out).duration
+        self.assertLess(tuned, base)  # pitched up -> shorter
+
+    def test_note_to_midi_matches_pitch(self):
+        from rubin.midi import note_to_midi
+        self.assertEqual(note_to_midi("E1"), 40)
+        self.assertEqual(note_to_midi("A3"), 69)
+
+
 if __name__ == "__main__":
     unittest.main()

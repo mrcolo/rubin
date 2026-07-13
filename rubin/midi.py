@@ -180,6 +180,24 @@ _QUALITIES = {"": (0, 4, 7), "m": (0, 3, 7), "7": (0, 4, 7, 10),
               "sus4": (0, 5, 7), "add9": (0, 4, 7, 14), "m9": (0, 3, 7, 14)}
 
 
+def note_to_midi(name):
+    """'E1' -> 40, 'C#3' -> 61, 'Bb2' -> 46. Octave uses the same convention
+    as midi_read.pitch_name (middle C = C3 = 60)."""
+    name = name.strip()
+    i = 1
+    if len(name) > 1 and name[1] in "#b":
+        i = 2
+    root, octpart = name[:i], name[i:]
+    root = root[0].upper() + root[1:]
+    if root not in _PC:
+        raise ValueError("bad note name: %r" % name)
+    try:
+        octave = int(octpart)
+    except ValueError:
+        raise ValueError("bad octave in note name: %r" % name)
+    return 12 * (octave + 2) + _PC[root]
+
+
 def chord_pitches(name, octave=3):
     """'Am' -> [69, 72, 76] (A3 C4 E4). Root placed in octave `octave`."""
     name = name.strip()
