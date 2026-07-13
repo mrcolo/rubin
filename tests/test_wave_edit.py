@@ -124,5 +124,36 @@ class TestPitchTo(unittest.TestCase):
         self.assertEqual(note_to_midi("A3"), 69)
 
 
+class TestPan(unittest.TestCase):
+    def test_hard_left_silences_right(self):
+        import array
+        c = Clip(array.array("f", [0.4, 0.4] * 50), 44100, 2)
+        L = c.pan(-1.0)
+        self.assertTrue(all(L.s[i] == 0 for i in range(1, len(L.s), 2)))   # right
+        self.assertTrue(all(L.s[i] == 0.4 for i in range(0, len(L.s), 2)))  # left
+
+    def test_center_unchanged(self):
+        import array
+        c = Clip(array.array("f", [0.3, -0.2] * 20), 44100, 2)
+        self.assertEqual(list(c.pan(0).s), list(c.s))
+
+    def test_mono_untouched(self):
+        import array
+        c = Clip(array.array("f", [0.5] * 30), 44100, 1)
+        self.assertEqual(list(c.pan(0.7).s), list(c.s))
+
+    def test_cut_arrange_with_pan(self):
+        import os, tempfile
+        d = tempfile.mkdtemp()
+        make_tone(os.path.join(d, "t.wav"), seconds=0.2)
+        out = os.path.join(d, "panned.wav")
+        r = cut_arrange([
+            {"file": os.path.join(d, "t.wav"), "at_beat": 0, "pan": -0.8},
+            {"file": os.path.join(d, "t.wav"), "at_beat": 1, "pan": 0.8},
+        ], tempo=140, out_path=out)
+        self.assertEqual(r["events"], 2)
+        self.assertTrue(os.path.isfile(out))
+
+
 if __name__ == "__main__":
     unittest.main()

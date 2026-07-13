@@ -261,6 +261,7 @@ TOOLS = [
                             "pitch_to": {"type": "string", "description": "Target note (e.g. 'E1'); with from_note, tunes the sample there"},
                             "from_note": {"type": "string", "description": "The sample's source note (from catalog_samples)"},
                             "gain": {"type": "number"},
+                            "pan": {"type": "number", "description": "-1 (hard left) .. +1 (hard right)"},
                             "reverse": {"type": "boolean"},
                             "fade_in": {"type": "number"},
                             "fade_out": {"type": "number"},

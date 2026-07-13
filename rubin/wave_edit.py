@@ -64,6 +64,19 @@ class Clip:
     def gain(self, factor):
         return Clip(array.array("f", [x * factor for x in self.s]), self.rate, self.ch)
 
+    def pan(self, p):
+        """Balance a stereo clip: p in [-1,1], -1 = hard left, 0 = center,
+        +1 = hard right. Mono clips are returned unchanged."""
+        if self.ch != 2 or p == 0:
+            return self.copy()
+        lg = min(1.0, 1.0 - p)
+        rg = min(1.0, 1.0 + p)
+        out = array.array("f", self.s)
+        for i in range(0, len(out), 2):
+            out[i] *= lg
+            out[i + 1] *= rg
+        return Clip(out, self.rate, self.ch)
+
     def reverse(self):
         out = array.array("f", self.s)
         # reverse frame order, keep channel interleave
@@ -183,7 +196,7 @@ def write_wav(path, clip, peak=0.89, limit=False):
 def cut_arrange(events, tempo=140.0, out_path=None, limit=False):
     """Build a song from sample slices. `events` is a list of dicts:
       {file, at_beat, start?, end?, pitch?, gain?, reverse?, fade_in?,
-       fade_out?, pitch_to?/from_note? (tune to a note), repeat?:{times, every}}
+       fade_out?, pan? (-1..1), pitch_to?/from_note?, repeat?:{times, every}}
     Each loads `file`, optionally slices [start,end] seconds, pitches by
     `pitch` semitones, reverses, fades (ms), and places it at `at_beat`.
     Renders a normalized 16-bit WAV to out_path. Returns {path, duration, events}."""
@@ -207,6 +220,8 @@ def cut_arrange(events, tempo=140.0, out_path=None, limit=False):
             c = c.reverse()
         if ev.get("fade_in") or ev.get("fade_out"):
             c = c.fade(ev.get("fade_in", 0), ev.get("fade_out", 0))
+        if ev.get("pan"):
+            c = c.pan(ev["pan"])
         gain = ev.get("gain", 1.0)
         if rpt := ev.get("repeat"):
             times = int(rpt.get("times", 1))
