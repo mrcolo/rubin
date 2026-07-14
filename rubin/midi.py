@@ -238,6 +238,7 @@ def progression_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=None,
                                        "melody": 92}[style]
     if style == "melody":
         return melody_notes(chords, bars_per_chord, beats_per_bar, octave, vel)
+    bars_per_chord = max(1, int(bars_per_chord))
     notes = []
     span = bars_per_chord * beats_per_bar
 

@@ -243,6 +243,8 @@ def cut_arrange(events, tempo=140.0, out_path=None, limit=False):
                       if not os.path.isfile(os.path.expanduser(ev["file"]))})
     if missing:
         raise ValueError("missing sample file(s): %s" % ", ".join(missing))
+    if not events:
+        raise ValueError("no events to render")
     cache = {}
     arr = Arrangement(tempo=tempo)
     for ev in events:

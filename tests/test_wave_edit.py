@@ -242,5 +242,17 @@ class TestAnalyzeAudio(unittest.TestCase):
             self.assertIn(k, a)
 
 
+class TestEdgeCases(unittest.TestCase):
+    def test_empty_cut_arrange_raises(self):
+        with self.assertRaises(ValueError):
+            cut_arrange([], out_path="/tmp/should_not_write.wav")
+
+    def test_silent_write_safe(self):
+        import os, tempfile
+        out = os.path.join(tempfile.mkdtemp(), "s.wav")
+        write_wav(out, Clip.silence(0.1))  # peak 0 must not divide-by-zero
+        self.assertTrue(os.path.isfile(out))
+
+
 if __name__ == "__main__":
     unittest.main()

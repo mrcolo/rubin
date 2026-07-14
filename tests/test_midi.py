@@ -424,5 +424,15 @@ class TestMelody(unittest.TestCase):
             _os.unlink(path)
 
 
+class TestDegenerateInputs(unittest.TestCase):
+    def test_zero_bars_per_chord_no_negative_dur(self):
+        for n in midi.progression_notes(["Am"], bars_per_chord=0):
+            self.assertGreater(n[1], 0)  # no negative/zero durations
+
+    def test_unknown_song_role_raises(self):
+        with self.assertRaises(ValueError):
+            midi.build_song(["Am"], sections=[{"bars": 4, "roles": ["kazoo"]}])
+
+
 if __name__ == "__main__":
     unittest.main()
