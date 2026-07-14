@@ -113,5 +113,52 @@ class TestFuzzAudio(unittest.TestCase):
             self.assertLessEqual(a["peak"], 1.0)
 
 
+class TestFuzzSongAndBounce(unittest.TestCase):
+    def test_random_songs_and_bounces(self):
+        import math
+        rng = random.Random(4242)
+        d = tempfile.mkdtemp()
+        roles_pool = ["pad", "bass", "arp", "drums", "melody"]
+        for i in range(4):
+            chords = [rng.choice(ROOTS) + rng.choice(["", "m", "maj7", "m7"])
+                      for _ in range(rng.randint(1, 4))]
+            sections = []
+            for _ in range(rng.randint(1, 4)):
+                k = rng.randint(1, 3)
+                sections.append({"bars": rng.choice([2, 4, 8]),
+                                 "roles": rng.sample(roles_pool, k)})
+            tracks = midi.build_song(chords, sections=sections,
+                                     drum_pattern_name=rng.choice(DRUMS),
+                                     seed=rng.randint(0, 5))
+            spec = {"tempo": rng.choice([90, 140, 174]), "key": "Em",
+                    "path": os.path.join(d, "song%d.mid" % i), "tracks": tracks}
+            from rubin import server
+            server._do_compose(spec)
+            walk_smf(open(spec["path"], "rb").read())     # valid SMF
+            # bounce to audio — synth must handle every generated note
+            wav = os.path.join(d, "song%d.wav" % i)
+            r = wave_edit.render_midi(spec["path"], wav)
+            self.assertGreaterEqual(r["voices"], 0)
+            a = wave_edit.analyze_audio(wav)
+            self.assertLessEqual(a["peak"], 1.0)          # never clips over full scale
+
+    def test_render_midi_pitch_extremes(self):
+        # notes at the very edges of MIDI range must synth without error
+        d = tempfile.mkdtemp()
+        from rubin import server
+        mid = os.path.join(d, "ext.mid")
+        server._do_compose({"tempo": 120, "path": mid, "tracks": [
+            {"name": "X", "channel": 0, "notes":
+                [{"start": i, "dur": 0.5, "pitch": p, "vel": 100}
+                 for i, p in enumerate([0, 1, 126, 127, 21, 108])]},
+            {"name": "D", "channel": 9, "notes":
+                [{"start": i * 0.5, "dur": 0.1, "pitch": p, "vel": 100}
+                 for i, p in enumerate([35, 36, 38, 42, 46, 49, 51, 60, 99])]},
+        ]})
+        wav = os.path.join(d, "ext.wav")
+        wave_edit.render_midi(mid, wav)
+        self.assertGreater(wave_edit.analyze_audio(wav)["duration"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
