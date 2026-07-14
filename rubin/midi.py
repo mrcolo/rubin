@@ -232,13 +232,13 @@ def progression_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=None,
     """
     if style not in ("pad", "bass", "arp", "melody"):
         raise ValueError("unknown progression style %r" % style)
+    bars_per_chord = max(1, int(bars_per_chord))
     octave = octave if octave is not None else {"pad": 3, "bass": 0, "arp": 4,
                                                 "melody": 3}[style]
     vel = vel if vel is not None else {"pad": 68, "bass": 98, "arp": 56,
                                        "melody": 92}[style]
     if style == "melody":
         return melody_notes(chords, bars_per_chord, beats_per_bar, octave, vel)
-    bars_per_chord = max(1, int(bars_per_chord))
     notes = []
     span = bars_per_chord * beats_per_bar
 
@@ -369,6 +369,7 @@ def melody_notes(chords, bars_per_chord=2, beats_per_bar=4, octave=3,
     - each 2-bar cell ends on a held note; the phrase resolves down
     - deterministic; vary `seed` for a different but equally-shaped hook
     """
+    bars_per_chord = max(1, int(bars_per_chord))
     span = bars_per_chord * beats_per_bar
     # the "key" proxy: every pitch class used by the progression
     scale = sorted({p % 12 for name in chords for p in chord_pitches(name, octave)})
