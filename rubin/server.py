@@ -556,6 +556,16 @@ TOOLS = [
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
+        "name": "verify_track_readback",
+        "description": (
+            "Cross-check list_tracks against each track's channel-strip name "
+            "(ground truth). Returns reliable=bool + per-track agreement. If "
+            "reliable is False, list_tracks names are stale (header column "
+            "off-screen) — trust the strip_name values instead. Non-destructive."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "logic_status",
         "description": (
             "Report Logic's state: not_running / no_project (display asleep or no "
@@ -834,6 +844,9 @@ def handle_tool(name, args):
         if buttons:
             return "Save sheet appeared with buttons %s — project may be unnamed" % buttons
         return "Saved"
+
+    if name == "verify_track_readback":
+        return json.dumps(logic_ctl.verify_track_readback())
 
     if name == "logic_status":
         return json.dumps(logic_ctl.project_state())

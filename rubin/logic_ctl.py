@@ -630,6 +630,32 @@ end tell
     return osa(script, timeout=45)
 
 
+def verify_track_readback():
+    """Cross-check list_tracks (fast, header-based) against the channel-strip
+    ground truth for every track, so a session knows whether the fast reader
+    is trustworthy in the current window state. This is the automated form of
+    the manual check that resolved the header-column-lie bug: if `reliable`
+    is False, don't trust list_tracks names — the header column is off-screen
+    or stale; use the strip names here instead.
+
+    Returns {reliable, tracks: [{index, list_name, strip_name, agree}]}.
+    Non-destructive (only changes which track is selected)."""
+    import time
+    names = [t["name"] for t in list_tracks()]
+    rows = []
+    reliable = True
+    for i, list_name in enumerate(names, start=1):
+        select_track(i)
+        time.sleep(0.3)
+        strip = selected_strip_name()
+        agree = bool(strip) and strip == list_name
+        if not agree:
+            reliable = False
+        rows.append({"index": i, "list_name": list_name,
+                     "strip_name": strip, "agree": agree})
+    return {"reliable": reliable, "tracks": rows}
+
+
 _TRANSPORT_KEYS = {
     "play": "key code 49",           # space toggles play/stop
     "stop": "key code 49",
