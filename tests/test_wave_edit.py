@@ -254,5 +254,41 @@ class TestEdgeCases(unittest.TestCase):
         self.assertTrue(os.path.isfile(out))
 
 
+class TestWaveforms(unittest.TestCase):
+    def _maxjump(self, c):
+        return max(abs(c.s[i] - c.s[i - 2]) for i in range(2, len(c.s), 2))
+
+    def test_saw_square_are_discontinuous(self):
+        sine = Clip.tone(110, 0.2, amp=0.7, waveform="sine")
+        saw = Clip.tone(110, 0.2, amp=0.7, waveform="saw")
+        sq = Clip.tone(110, 0.2, amp=0.7, waveform="square")
+        # saw/square jump ~2*amp at cycle boundary; sine is smooth
+        self.assertGreater(self._maxjump(saw), self._maxjump(sine) * 5)
+        self.assertGreater(self._maxjump(sq), self._maxjump(sine) * 5)
+
+    def test_all_waveforms_peak_bounded(self):
+        for wf in ("sine", "saw", "square", "triangle"):
+            c = Clip.tone(200, 0.1, amp=0.7, waveform=wf)
+            self.assertLessEqual(max(abs(x) for x in c.s), 0.7 + 1e-6)
+
+    def test_bad_waveform_raises(self):
+        with self.assertRaises(ValueError):
+            Clip.tone(100, 0.1, waveform="wobble")
+
+    def test_render_midi_waveform_param(self):
+        import os, tempfile
+        from rubin import server
+        d = tempfile.mkdtemp()
+        mid = os.path.join(d, "w.mid")
+        server._do_compose({"tempo": 120, "path": mid, "tracks": [
+            {"channel": 0, "notes": [{"start": i, "dur": 0.5, "pitch": 48, "vel": 100}
+                                     for i in range(4)]}]})
+        from rubin import wave_edit
+        for wf in ("sine", "saw", "square"):
+            out = os.path.join(d, wf + ".wav")
+            wave_edit.render_midi(mid, out, waveform=wf)
+            self.assertGreater(wave_edit.analyze_audio(out)["rms"], 0.01)
+
+
 if __name__ == "__main__":
     unittest.main()

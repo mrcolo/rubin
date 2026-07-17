@@ -55,13 +55,27 @@ class Clip:
         return Clip(array.array("f", self.s), self.rate, self.ch)
 
     @staticmethod
-    def tone(freq, seconds, rate=44100, channels=2, amp=0.7):
-        """A sine tone — a from-scratch sound source for the arranger."""
+    def tone(freq, seconds, rate=44100, channels=2, amp=0.7, waveform="sine"):
+        """A single-oscillator tone. `waveform` is sine (default, back-compat),
+        saw, square, or triangle — the non-sine shapes are harmonically richer
+        (audible bass, brighter leads) and, being direct formulas rather than
+        math.sin, are no slower to synthesize."""
         n = int(seconds * rate)
-        step = 2 * math.pi * freq / rate
         out = array.array("f", bytes(4 * channels * n))
+        dp = freq / rate  # phase increment per sample, cycles
+        if waveform == "sine":
+            step = 2 * math.pi * freq / rate
+            gen = lambda i: math.sin(step * i)
+        elif waveform == "saw":
+            gen = lambda i: 2.0 * ((dp * i) % 1.0) - 1.0
+        elif waveform == "square":
+            gen = lambda i: 1.0 if (dp * i) % 1.0 < 0.5 else -1.0
+        elif waveform == "triangle":
+            gen = lambda i: 4.0 * abs(((dp * i) % 1.0) - 0.5) - 1.0
+        else:
+            raise ValueError("unknown waveform %r" % waveform)
         for i in range(n):
-            v = amp * math.sin(step * i)
+            v = amp * gen(i)
             for c in range(channels):
                 out[i * channels + c] = v
         return Clip(out, rate, channels)
@@ -314,7 +328,7 @@ _DRUM_MAP = {
 }
 
 
-def _note_clip(pitch, dur_s, vel, rate, drum=False):
+def _note_clip(pitch, dur_s, vel, rate, drum=False, waveform="saw"):
     amp = max(0.05, min(1.0, vel / 127.0)) * 0.5
     if drum:
         kind, freq = _DRUM_MAP.get(pitch, ("noise_hi", None))
@@ -324,12 +338,13 @@ def _note_clip(pitch, dur_s, vel, rate, drum=False):
         return Clip.noise(hp, rate, amp=amp * (1.0 if kind == "noise" else 0.6)).fade(1, 40)
     freq = 440.0 * (2 ** ((pitch - 69) / 12.0))
     rel = min(int(dur_s * 1000), 90)
-    return Clip.tone(freq, dur_s, rate, amp=amp).fade(4, rel)
+    return Clip.tone(freq, dur_s, rate, amp=amp, waveform=waveform).fade(4, rel)
 
 
-def render_midi(midi_path, out_path=None, rate=44100):
-    """Bounce a .mid to audio with rubin's built-in synth: sine voices for
-    pitched tracks, noise/tone hits for channel-9 drums. No DAW or plugin —
+def render_midi(midi_path, out_path=None, rate=44100, waveform="saw"):
+    """Bounce a .mid to audio with rubin's built-in synth: `waveform` voices
+    (saw by default — audible bass/leads; sine/square/triangle also available)
+    for pitched tracks, noise/tone hits for channel-9 drums. No DAW or plugin —
     lets a composed MIDI arrangement be mixed with sample cuts."""
     import os
     from rubin import midi_read
@@ -342,7 +357,7 @@ def render_midi(midi_path, out_path=None, rate=44100):
             dur_s = arr.beat_to_s(dur)
             if dur_s < 0.02:
                 dur_s = 0.02
-            arr.add(_note_clip(pitch, dur_s, vel, rate, drum), at_beat=start)
+            arr.add(_note_clip(pitch, dur_s, vel, rate, drum, waveform), at_beat=start)
     out_path = os.path.expanduser(out_path or "~/Desktop/midi_render.wav")
     dur = write_wav(out_path, arr.render(), limit=True)
     return {"path": out_path, "duration": round(dur, 2),
